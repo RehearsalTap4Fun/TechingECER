@@ -4,8 +4,14 @@ import { extractText } from "@/lib/extract";
 import { classify } from "@/lib/classify";
 import { run } from "@/lib/db";
 
-/** 上传目录：public/uploads，按年月分子目录，避免单目录堆上万个文件 */
-const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
+/**
+ * 上传目录：data/uploads，按年月分子目录，避免单目录堆上万个文件。
+ *
+ * 不放 public/：Next.js 构建时才扫描 public/ 生成静态清单，运行时写进去的
+ * 文件不会被托管（一律 404）。放在 data/ 下还有个好处——备份只需拷 data/，
+ * 数据库和原件在一起。取回走 /api/files/<相对路径>。
+ */
+export const UPLOAD_ROOT = path.join(process.cwd(), "data", "uploads");
 
 /** 单个文件大小上限，防止误传大视频撑爆磁盘 */
 export const MAX_FILE_BYTES = 30 * 1024 * 1024;
@@ -56,7 +62,8 @@ export async function ingestFile(
 
   // 同名文件不覆盖：加时间戳前缀
   const stored = `${now.getTime()}-${fileName}`;
-  const relPath = `uploads/${subDir}/${stored}`;
+  // file_path 存相对 UPLOAD_ROOT 的路径，取回时拼到 /api/files/ 之后
+  const relPath = `${subDir}/${stored}`;
   await writeFile(path.join(UPLOAD_ROOT, subDir, stored), bytes);
 
   const extracted = await extractText(fileName, bytes);

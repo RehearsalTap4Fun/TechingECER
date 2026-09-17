@@ -60,7 +60,13 @@ export function ResourceCard({
   // 低置信度的判定要显眼一些，教师优先复核这些
   const lowConfidence = pending && confidence < 0.5;
 
-  const href = r.file_path ? `/${r.file_path}` : r.url;
+  // 上传的文件走 /api/files（public/ 不托管运行时写入的文件）
+  const fileHref = r.file_path
+    ? `/api/files/${r.file_path.split("/").map(encodeURIComponent).join("/")}`
+    : null;
+  const href = fileHref ?? r.url;
+  // Office 文档浏览器无法渲染，点开就是下载；PDF / 文本 / 图片能直接预览
+  const previewable = ["pdf", "text"].includes(r.extract_kind ?? "");
 
   return (
     <Card className={lowConfidence ? "border-amber-400/60" : undefined}>
@@ -77,12 +83,23 @@ export function ResourceCard({
         ) : (
           <span className="font-medium">{r.title}</span>
         )}
-        <form action={onDelete} className="no-print">
-          <input type="hidden" name="id" value={r.id} />
-          <button className="shrink-0 text-xs underline" style={{ color: "var(--muted)" }}>
-            删除
-          </button>
-        </form>
+        <div className="flex shrink-0 items-center gap-3">
+          {fileHref && (
+            <a
+              href={`${fileHref}?download=1`}
+              className="text-xs underline"
+              style={{ color: "var(--muted)" }}
+            >
+              下载
+            </a>
+          )}
+          <form action={onDelete} className="no-print">
+            <input type="hidden" name="id" value={r.id} />
+            <button className="text-xs underline" style={{ color: "var(--muted)" }}>
+              删除
+            </button>
+          </form>
+        </div>
       </div>
 
       {r.description && (
@@ -104,7 +121,12 @@ export function ResourceCard({
         <Tag>{r.category}</Tag>
         {domain && <Tag color={domain.color}>{domain.name}</Tag>}
         {r.age_group && <Tag>{AGE_GROUP_MAP.get(r.age_group as never)?.label}</Tag>}
-        {r.extract_kind && <Tag>{KIND_LABEL[r.extract_kind] ?? r.extract_kind}</Tag>}
+        {r.extract_kind && (
+          <Tag>
+            {KIND_LABEL[r.extract_kind] ?? r.extract_kind}
+            {fileHref ? (previewable ? " · 可预览" : " · 点击下载") : ""}
+          </Tag>
+        )}
         {r.file_size !== null && <Tag>{sizeLabel(r.file_size)}</Tag>}
         {r.tags.map((t) => (
           <Tag key={t}>#{t}</Tag>

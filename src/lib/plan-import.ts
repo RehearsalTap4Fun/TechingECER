@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { one } from "@/lib/db";
 import { extractText } from "@/lib/extract";
+import { UPLOAD_ROOT } from "@/lib/ingest";
 import { parsePlan, type PlanDraft } from "@/lib/plan-parser";
 import type { TopicFormValues } from "@/components/topic-form";
 
@@ -28,7 +29,7 @@ export async function draftFromResource(
 
   if (!text && row.file_path) {
     try {
-      const buf = await readFile(path.join(process.cwd(), "public", row.file_path));
+      const buf = await readFile(path.join(UPLOAD_ROOT, row.file_path));
       text = (await extractText(fileName, new Uint8Array(buf))).text;
     } catch {
       return null;

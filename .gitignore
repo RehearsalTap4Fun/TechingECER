@@ -15,9 +15,8 @@ next-env.d.ts
 /data/*.db-wal
 /data/*.db-shm
 
-# 上传的资料原件
-/public/uploads/*
-!/public/uploads/.gitkeep
+# 上传的资料原件（与数据库同在 data/，备份拷 data/ 即可）
+/data/uploads/
 
 # 环境变量
 .env
