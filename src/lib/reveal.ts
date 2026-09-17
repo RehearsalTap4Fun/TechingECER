@@ -33,15 +33,24 @@ export async function isLocalRequest(): Promise<boolean> {
 export type RevealMode = "reveal" | "open";
 
 /** 各平台的「在文件夹中显示」与「用默认程序打开」 */
-function commandFor(mode: RevealMode, abs: string): { cmd: string; args: string[] } {
+interface Command {
+  cmd: string;
+  args: string[];
+  /** Windows 上让 Node 原样传参，不要自作主张加引号 */
+  verbatim?: boolean;
+}
+
+function commandFor(mode: RevealMode, abs: string): Command {
   if (process.platform === "darwin") {
     return mode === "reveal" ? { cmd: "open", args: ["-R", abs] } : { cmd: "open", args: [abs] };
   }
   if (process.platform === "win32") {
-    // explorer 的 /select 必须和路径拼在同一个参数里
+    // explorer 的 /select 必须和路径拼在同一个参数里；而且 Node 默认会给
+    // 含逗号/空格的参数加引号，explorer 不认，加了引号会变成打开「文档」目录，
+    // 所以这里自己加引号并要求 verbatim 传参
     return mode === "reveal"
-      ? { cmd: "explorer", args: [`/select,${abs}`] }
-      : { cmd: "cmd", args: ["/c", "start", "", abs] };
+      ? { cmd: "explorer.exe", args: [`/select,"${abs}"`], verbatim: true }
+      : { cmd: "cmd.exe", args: ["/c", "start", '""', `"${abs}"`], verbatim: true };
   }
   // Linux 没有通用的「选中文件」，退而求其次打开所在目录
   return mode === "reveal"
@@ -61,9 +70,13 @@ export async function revealPath(abs: string, mode: RevealMode): Promise<RevealR
     return { ok: false, error: "文件已不在资料目录里" };
   }
 
-  const { cmd, args } = commandFor(mode, abs);
+  const { cmd, args, verbatim } = commandFor(mode, abs);
   try {
-    await run(cmd, args, { timeout: 5000, windowsHide: true });
+    await run(cmd, args, {
+      timeout: 5000,
+      windowsHide: true,
+      ...(verbatim ? { windowsVerbatimArguments: true } : {}),
+    });
     return { ok: true };
   } catch (e) {
     // Windows 的 explorer /select 成功时也会返回非 0 退出码

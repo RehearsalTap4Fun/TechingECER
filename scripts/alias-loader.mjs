@@ -3,6 +3,7 @@
  * 只影响用 --import 加载了本文件的脚本，不影响 Next.js 自己的解析。
  */
 import { register } from "node:module";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 register(
@@ -11,7 +12,7 @@ register(
       import { existsSync } from "node:fs";
       import { fileURLToPath } from "node:url";
 
-      const ROOT = ${JSON.stringify(pathToFileURL(process.cwd() + "/src/").href)};
+      const ROOT = ${JSON.stringify(pathToFileURL(path.join(process.cwd(), "src") + path.sep).href)};
       const EXTS = ["", ".ts", ".tsx", "/index.ts"];
 
       export function resolve(specifier, context, next) {

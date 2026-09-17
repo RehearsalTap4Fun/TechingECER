@@ -9,7 +9,7 @@
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit",
     "db:init": "node --experimental-strip-types scripts/init-db.mts",
-    "db:reset": "rm -f data/teaching-ecer.db && npm run db:init",
+    "db:reset": "node -e \"require('node:fs').rmSync('data/teaching-ecer.db',{force:true})\" && npm run db:init",
     "classify": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/classify-file.mts",
     "import": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/import-docs.mts",
     "classify:eval": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/classify-eval.mts",

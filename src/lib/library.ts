@@ -26,8 +26,11 @@ const DOCUMENT_EXTS = new Set([
 /** 扫描时跳过的目录：系统目录与常见的同步软件副本目录 */
 const SKIP_DIRS = new Set([
   "node_modules", ".git", ".svn", "__MACOSX", ".Trash", "$RECYCLE.BIN",
-  "System Volume Information",
+  "System Volume Information", "$Recycle.Bin", ".Spotlight-V100", ".fseventsd",
 ]);
+
+/** Windows 的隐藏文件不靠点号前缀，按名字剔除常见系统文件 */
+const SKIP_FILES = new Set(["desktop.ini", "Thumbs.db", "thumbs.db", ".DS_Store"]);
 
 export interface DirCheck {
   ok: boolean;
@@ -40,7 +43,15 @@ export interface DirCheck {
 export async function checkDir(dir: string): Promise<DirCheck> {
   const trimmed = dir.trim();
   if (!trimmed) return { ok: false, error: "请填写目录路径" };
-  if (!path.isAbsolute(trimmed)) return { ok: false, error: "请填写绝对路径，如 /Users/你的用户名/幼儿园资料" };
+  if (!path.isAbsolute(trimmed)) {
+    return {
+      ok: false,
+      error:
+        process.platform === "win32"
+          ? "请填写绝对路径，如 C:\\Users\\你的用户名\\Documents\\幼儿园资料"
+          : "请填写绝对路径，如 /Users/你的用户名/Documents/幼儿园资料",
+    };
+  }
 
   let info;
   try {
@@ -74,7 +85,7 @@ async function walk(root: string, dir: string, depth: number): Promise<FoundFile
 
   for (const e of entries) {
     // 隐藏文件与 Office 编辑时产生的 ~$ 临时文件一律跳过
-    if (e.name.startsWith(".") || e.name.startsWith("~$")) continue;
+    if (e.name.startsWith(".") || e.name.startsWith("~$") || SKIP_FILES.has(e.name)) continue;
     const abs = path.join(dir, e.name);
 
     if (e.isDirectory()) {
@@ -87,7 +98,10 @@ async function walk(root: string, dir: string, depth: number): Promise<FoundFile
 
     try {
       const info = await stat(abs);
-      out.push({ rel: path.relative(root, abs), abs, size: info.size, mtime: Math.floor(info.mtimeMs) });
+      // rel 同时用作 URL 片段和数据库里的身份，一律存正斜杠；
+      // Windows 的 path.relative 返回反斜杠，必须在这里统一
+      const rel = path.relative(root, abs).split(path.sep).join("/");
+      out.push({ rel, abs, size: info.size, mtime: Math.floor(info.mtimeMs) });
     } catch {
       // 扫描过程中文件被删/被锁，跳过即可，下次扫描再说
     }
@@ -256,8 +270,16 @@ export async function syncLibrary(opts: { force?: boolean } = {}): Promise<SyncR
 export function resolveInLibrary(relPath: string): string | null {
   const dir = getLibraryDir();
   if (!dir) return null;
-  const abs = path.resolve(dir, relPath);
-  // 目录穿越防护：拼接后必须仍在资料目录内
-  if (abs !== dir && !abs.startsWith(dir + path.sep)) return null;
+
+  // 索引里存的是正斜杠，Windows 上要换回反斜杠再拼
+  const native = relPath.split("/").join(path.sep);
+  const abs = path.resolve(dir, native);
+  const root = path.resolve(dir);
+
+  // 目录穿越防护：拼接后必须仍在资料目录内。
+  // Windows 的盘符与路径大小写不敏感，比较前统一大小写，否则
+  // C:\Users\x 与 c:\users\x 会被判成不同目录。
+  const norm = (v: string) => (process.platform === "win32" ? v.toLowerCase() : v);
+  if (norm(abs) !== norm(root) && !norm(abs).startsWith(norm(root) + path.sep)) return null;
   return abs;
 }

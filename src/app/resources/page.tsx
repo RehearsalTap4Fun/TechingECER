@@ -10,6 +10,7 @@ import { ResourceCard, type ResourceView } from "@/components/resource-card";
 import {
   archiveResource,
   bindLibrary,
+  locateDroppedDir,
   revealResource,
   purgeMissing,
   reclassifyResource,
@@ -91,7 +92,7 @@ export default async function ResourcesPage({
           title="资源库"
           description="这是一个本地工具——绑定你自己的资料目录，文档放进去就会被自动索引和分类，文件始终留在原处。"
         />
-        <LibrarySetup action={bindLibrary} />
+        <LibrarySetup action={bindLibrary} locate={locateDroppedDir} canLocate={local} />
       </>
     );
   }
@@ -180,7 +181,12 @@ export default async function ResourcesPage({
             <details className="no-print">
               <summary className="cursor-pointer underline">更换目录</summary>
               <div className="mt-3 w-[min(90vw,32rem)]">
-                <LibrarySetup action={bindLibrary} current={dir} />
+                <LibrarySetup
+                  action={bindLibrary}
+                  locate={locateDroppedDir}
+                  current={dir}
+                  canLocate={local}
+                />
                 <form action={unbindLibrary} className="mt-2">
                   <button className="text-xs underline" style={{ color: "var(--muted)" }}>
                     解除绑定（只清索引，不动你的文件）

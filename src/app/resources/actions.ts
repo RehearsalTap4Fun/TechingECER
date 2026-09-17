@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { checkDir, resolveInLibrary, syncLibrary } from "@/lib/library";
 import { isLocalRequest, revealPath, type RevealMode } from "@/lib/reveal";
+import { locateDirectory, type DirSample, type LocateMatch } from "@/lib/locate-dir";
 import { LIBRARY_DIR, clearSetting, setSetting } from "@/lib/settings";
 import { one } from "@/lib/db";
 
@@ -121,4 +122,52 @@ export async function revealResource(_prev: RevealState, fd: FormData): Promise<
   const r = await revealPath(abs, mode);
   if (!r.ok) return { error: r.error };
   return { ok: mode === "reveal" ? "已在文件管理器中定位" : "已用默认程序打开" };
+}
+
+export interface LocateState {
+  matches?: LocateMatch[];
+  error?: string;
+  /** 用户拖入的文件夹名，找不到时用于提示 */
+  name?: string;
+}
+
+/**
+ * 根据浏览器交出的「文件夹名 + 抽样文件」在本机定位这个目录。
+ *
+ * 浏览器不给绝对路径，只能由服务端反查——所以同样只在本机请求时可用。
+ */
+export async function locateDroppedDir(
+  _prev: LocateState,
+  fd: FormData,
+): Promise<LocateState> {
+  if (!(await isLocalRequest())) {
+    return { error: "只有在运行本应用的那台机器上才能自动识别目录，请手动填写路径" };
+  }
+
+  const name = String(fd.get("name") ?? "").trim();
+  if (!name) return { error: "没有读到文件夹名" };
+
+  let samples: DirSample[] = [];
+  try {
+    const raw = JSON.parse(String(fd.get("samples") ?? "[]"));
+    if (Array.isArray(raw)) {
+      samples = raw
+        .filter((s) => s && typeof s.rel === "string" && Number.isFinite(s.size))
+        .slice(0, 30)
+        .map((s) => ({ rel: String(s.rel), size: Number(s.size) }));
+    }
+  } catch {
+    // 抽样解析失败就只按名字找
+  }
+
+  const r = await locateDirectory(name, samples);
+  if (r.matches.length === 0) {
+    return {
+      name,
+      error: r.truncated
+        ? `在常用位置里没找到「${name}」（搜索已达上限）。请手动填写它的完整路径。`
+        : `在桌面、文稿、下载等常用位置里没找到「${name}」。请手动填写它的完整路径。`,
+    };
+  }
+  return { name, matches: r.matches };
 }

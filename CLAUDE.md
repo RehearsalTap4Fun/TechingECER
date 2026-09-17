@@ -25,6 +25,7 @@ src/lib/settings.ts   key/value 设置，目前只存绑定的资料目录
 src/lib/library.ts    资料目录扫描与索引同步（原地索引，不复制文件）
 src/lib/files.ts      文件取回 URL，服务端与客户端组件共用
 src/lib/reveal.ts     在本机文件管理器中定位/打开文件，含本机判定
+src/lib/locate-dir.ts 按「文件夹名 + 文件指纹」在本机反查目录绝对路径
 src/app/api/files/[...path]/route.ts  资料目录文件的取回入口
 src/components/       共享 UI 与各模块的表单组件
 src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
@@ -138,3 +139,12 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 
 **25. 调系统命令一律用 `execFile` 传参数数组。**
 不走 shell，避免命令注入；路径必须先经 `resolveInLibrary` 校验在资料目录内。各平台命令见 `commandFor()`；注意 Windows 的 `explorer /select` 成功时也返回非 0 退出码，要特判。
+
+**26. 浏览器永远拿不到拖入文件夹的绝对路径。**
+`webkitGetAsEntry()` 只给文件夹名和内部相对路径，`File.path` 是 Electron 扩展、普通浏览器没有。本项目的做法是让服务端反查：`locate-dir.ts` 在几个常用位置 BFS 搜同名目录，再用抽样文件的大小确认是哪一个。搜索有时间（4s）、目录数（3 万）、深度（6 层）三重上限——宁可找不到让用户手填，也不能把整块盘扫一遍。命中率不足 0.6 一律不返回，不猜。
+
+**27. 跨平台要点（Windows）。**
+- `rel_path` 同时是数据库里的身份和 URL 片段，存储前必须 `split(path.sep).join("/")`；`resolveInLibrary` 再换回平台分隔符。Windows 的 `path.relative` 返回反斜杠，不转就会把 URL 和目录穿越校验一起搞坏。
+- 目录穿越校验在 Windows 上要先统一大小写：盘符与路径大小写不敏感，`C:\Users` 与 `c:\users` 否则会被判成不同目录。
+- `explorer /select` 的路径必须和 `/select,` 拼成同一个参数，而且要 `windowsVerbatimArguments: true`——Node 默认会给含逗号的参数加引号，explorer 不认，加了就变成打开「文档」目录。
+- npm 脚本别用 `rm`／`&&` 之外的 shell 特性；`db:reset` 已改成 `node -e` 调 `fs.rmSync`。
