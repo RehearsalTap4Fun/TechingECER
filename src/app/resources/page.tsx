@@ -11,6 +11,7 @@ import {
   archiveResource,
   bindLibrary,
   exportAllToLibrary,
+  loadPreview,
   locateDroppedDir,
   revealResource,
   purgeMissing,
@@ -272,6 +273,7 @@ export default async function ResourcesPage({
               onReclassify={reclassifyResource}
               onUnarchive={unarchiveResource}
               onReveal={revealResource}
+              onPreview={loadPreview}
               local={local}
             />
           ))}

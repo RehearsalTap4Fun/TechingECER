@@ -4,8 +4,8 @@ import { AGE_GROUP_MAP, DOMAIN_MAP } from "@/lib/domain";
 import { Card, Tag } from "@/components/ui";
 import { fileHref } from "@/lib/files";
 import { isLocalRequest } from "@/lib/reveal";
-import { FileOpenButton } from "@/components/file-open-button";
-import { revealResource } from "@/app/resources/actions";
+import { FilePreview } from "@/components/file-preview";
+import { loadPreview, revealResource } from "@/app/resources/actions";
 
 /**
  * 某个模块下的「相关资料」。
@@ -71,8 +71,15 @@ export async function RelatedResources({
               key={r.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm transition hover:bg-brand-50 dark:hover:bg-brand-900/30"
             >
-              {local && r.rel_path ? (
-                <FileOpenButton action={revealResource} id={r.id} label={r.title} />
+              {r.rel_path ? (
+                <FilePreview
+                  id={r.id}
+                  title={r.title}
+                  className="truncate text-left text-brand-600 underline underline-offset-2"
+                  load={loadPreview}
+                  reveal={revealResource}
+                  local={local}
+                />
               ) : (
                 <a
                   href={r.rel_path ? fileHref(r.rel_path) : "#"}

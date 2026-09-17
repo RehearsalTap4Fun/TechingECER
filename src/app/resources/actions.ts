@@ -182,3 +182,89 @@ export async function exportAllToLibrary() {
   await exportAll();
   revalidatePath("/resources");
 }
+
+export interface PreviewData {
+  id: number;
+  title: string;
+  relPath: string | null;
+  /** docx | pptx | xlsx | pdf | text | unsupported */
+  kind: string;
+  /** 可内嵌渲染的方式 */
+  render: "pdf" | "image" | "text" | "none";
+  /** render === "text" 时的正文 */
+  text?: string;
+  /** 为什么只能看到这些 */
+  note?: string;
+  error?: string;
+}
+
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
+/**
+ * 取一份资料的预览内容。
+ *
+ * PDF 和图片浏览器能直接渲染，交给 iframe/img；Office 文档渲染不了，
+ * 但入库时已经把正文提取出来了，直接拿来当纯文本预览——复核分类时
+ * 看正文就够了，不必开 Word。
+ */
+export async function loadPreview(id: number): Promise<PreviewData> {
+  const row = one<{
+    id: number;
+    title: string;
+    rel_path: string | null;
+    extract_kind: string | null;
+    content_text: string | null;
+    missing: number;
+  }>(
+    "SELECT id, title, rel_path, extract_kind, content_text, missing FROM resources WHERE id = ?",
+    id,
+  );
+
+  if (!row) return { id, title: "", relPath: null, kind: "", render: "none", error: "找不到这份资料" };
+  if (row.missing === 1) {
+    return {
+      id,
+      title: row.title,
+      relPath: row.rel_path,
+      kind: row.extract_kind ?? "",
+      render: "none",
+      error: "文件已不在资料目录里",
+    };
+  }
+
+  const kind = row.extract_kind ?? "unsupported";
+  const lower = (row.rel_path ?? "").toLowerCase();
+  const isImage = IMAGE_EXTS.some((e) => lower.endsWith(e));
+
+  if (isImage) {
+    return { id, title: row.title, relPath: row.rel_path, kind, render: "image" };
+  }
+  if (kind === "pdf") {
+    return { id, title: row.title, relPath: row.rel_path, kind, render: "pdf" };
+  }
+
+  const text = (row.content_text ?? "").trim();
+  if (!text) {
+    return {
+      id,
+      title: row.title,
+      relPath: row.rel_path,
+      kind,
+      render: "none",
+      note: kind === "unsupported" ? "这种文件类型无法提取正文，请下载后查看。" : "没能提取出正文。",
+    };
+  }
+
+  return {
+    id,
+    title: row.title,
+    relPath: row.rel_path,
+    kind,
+    render: "text",
+    text: text.slice(0, 60_000),
+    note:
+      kind === "text"
+        ? undefined
+        : "浏览器无法渲染 Office 文档，以下是入库时提取的纯文本（不含排版与图片）。",
+  };
+}

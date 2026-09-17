@@ -4,8 +4,8 @@ import { useState } from "react";
 import { AGE_GROUPS, AGE_GROUP_MAP, DOMAINS, DOMAIN_MAP, RESOURCE_CATEGORIES } from "@/lib/domain";
 import { Card, Tag } from "@/components/ui";
 import { fileHref } from "@/lib/files";
-import { FileOpenButton } from "@/components/file-open-button";
-import type { RevealState } from "@/app/resources/actions";
+import { FilePreview } from "@/components/file-preview";
+import type { PreviewData, RevealState } from "@/app/resources/actions";
 
 export interface ResourceView {
   id: number;
@@ -46,15 +46,13 @@ const KIND_LABEL: Record<string, string> = {
   unsupported: "未解析",
 };
 
-/** 浏览器能直接渲染的才谈得上预览，Office 文档点开只能是下载 */
-const PREVIEWABLE = new Set(["pdf", "text"]);
-
 export function ResourceCard({
   r,
   onArchive,
   onReclassify,
   onUnarchive,
   onReveal,
+  onPreview,
   local = false,
 }: {
   r: ResourceView;
@@ -63,6 +61,8 @@ export function ResourceCard({
   onUnarchive?: (fd: FormData) => void;
   /** 在本机文件管理器里定位/打开 */
   onReveal?: (prev: RevealState, fd: FormData) => Promise<RevealState>;
+  /** 读取预览内容 */
+  onPreview?: (id: number) => Promise<PreviewData>;
   /** 浏览器与服务端是否在同一台机器 */
   local?: boolean;
 }) {
@@ -75,9 +75,8 @@ export function ResourceCard({
   const lowConfidence = !archived && confidence < 0.5;
 
   const href = r.rel_path ? fileHref(r.rel_path) : r.url;
-  const previewable = PREVIEWABLE.has(r.extract_kind ?? "");
-  // 本机 + 文件还在 + 有定位动作，才走「在文件管理器中定位」
-  const canOpenLocally = local && !!onReveal && !!r.rel_path && r.missing === 0;
+  // 有本地文件、文件还在、且提供了预览动作，才用内嵌预览
+  const canPreview = !!onPreview && !!r.rel_path && r.missing === 0;
 
   return (
     <Card
@@ -86,9 +85,15 @@ export function ResourceCard({
       }
     >
       <div className="flex items-start justify-between gap-3">
-        {canOpenLocally ? (
-          // 本机：点标题在访达/资源管理器里定位到这份文件
-          <FileOpenButton action={onReveal!} id={r.id} label={r.title} />
+        {canPreview ? (
+          // 点标题在应用内盖一层预览，关掉即回到列表——不再新开浏览器标签页
+          <FilePreview
+            id={r.id}
+            title={r.title}
+            load={onPreview!}
+            reveal={onReveal}
+            local={local}
+          />
         ) : href && r.missing === 0 ? (
           <a
             href={href}
@@ -103,15 +108,6 @@ export function ResourceCard({
         )}
 
         <div className="flex shrink-0 items-center gap-3">
-          {canOpenLocally && (
-            <FileOpenButton
-              action={onReveal!}
-              id={r.id}
-              label="打开"
-              mode="open"
-              title="用默认程序打开这份文件"
-            />
-          )}
           {href && r.missing === 0 && (
             <a href={`${href}?download=1`} className="text-xs underline" style={{ color: "var(--muted)" }}>
               下载
@@ -157,15 +153,7 @@ export function ResourceCard({
         {r.extract_kind && (
           <Tag>
             {KIND_LABEL[r.extract_kind] ?? r.extract_kind}
-            {r.missing === 1
-              ? ""
-              : canOpenLocally
-                ? " · 点击定位"
-                : href
-                  ? previewable
-                    ? " · 可预览"
-                    : " · 点击下载"
-                  : ""}
+            {r.missing === 1 ? "" : canPreview ? " · 点击预览" : href ? " · 点击下载" : ""}
           </Tag>
         )}
         {r.file_size !== null && <Tag>{sizeLabel(r.file_size)}</Tag>}

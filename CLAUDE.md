@@ -177,3 +177,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 **33. 别在用户的 dev server 运行时 `rm -rf .next`。**
 Turbopack 的运行时 chunk 被删掉后 dev server 无法自愈，之后每个页面都 500，日志里是 `Cannot find module '../chunks/ssr/[turbopack]_runtime.js'`。要清缓存先停进程。开工前先 `ps` 看一眼有没有别人起的 dev/start 进程。
+
+**34. 资料条目点击 = 应用内预览，不新开标签页。**
+`file-preview.tsx` 盖一层面板，Esc / 点背景 / 关闭按钮都能退出，并锁住背景滚动。Office 文档没法在浏览器里渲染，预览用的是 `resources.content_text`（入库时就提取好了），这也是把正文存进数据库的第二个用处——第一个是全文检索。定位/打开/下载作为面板内的按钮保留。
