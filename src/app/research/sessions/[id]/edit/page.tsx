@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { one } from "@/lib/db";
 import { ResearchForm, type SessionValues } from "@/components/research-form";
 import { PageHeader } from "@/components/ui";
-import { updateSession } from "../../actions";
+import { loadTopicOptions } from "@/lib/topic-options";
+import { updateSession } from "../../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,12 @@ export default async function EditResearchPage({ params }: { params: Promise<{ i
   return (
     <>
       <PageHeader title="编辑教研纪要" description={row.title} />
-      <ResearchForm action={updateSession} initial={row} submitLabel="保存修改" />
+      <ResearchForm
+        action={updateSession}
+        initial={row}
+        topics={loadTopicOptions()}
+        submitLabel="保存修改"
+      />
     </>
   );
 }

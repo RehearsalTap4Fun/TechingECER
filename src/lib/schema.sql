@@ -49,9 +49,70 @@ CREATE TABLE IF NOT EXISTS lessons (
 CREATE INDEX IF NOT EXISTS idx_lessons_domain ON lessons(domain_key);
 CREATE INDEX IF NOT EXISTS idx_lessons_age ON lessons(age_group);
 
+-- ── 教研专题 / 小课题 ────────────────────────────────────────
+-- 园所的教研是以学期或学年为周期的「专题」组织的：一条主线下分几个月度
+-- 主题模块，每个模块开一次大教研，再落到课例实践。单次教研活动脱离专题
+-- 就失去了参照系，所以 research_sessions 挂在模块（进而挂在专题）之下。
+CREATE TABLE IF NOT EXISTS research_topics (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  title         TEXT NOT NULL,               -- 如「促进学前儿童前阅读核心经验获得的教学实践研究」
+  subtitle      TEXT,                        -- 副标题 / 研究方向
+  kind          TEXT NOT NULL DEFAULT 'topic', -- topic 专题教研 | project 小课题 | training 教师培养
+  school_year   TEXT,                        -- 如「2026-2027」
+  term          TEXT,                        -- 上期 | 下期 | 全年
+  leader        TEXT,                        -- 主持人 / 负责人
+  team          TEXT,                        -- 参与组别，如「语言组全体教师」
+  background    TEXT,                        -- 教研背景：要解决的真问题
+  theory_basis  TEXT,                        -- 理论支撑 / 依据文件
+  start_on      TEXT,
+  end_on        TEXT,
+  doc_resource_id INTEGER REFERENCES resources(id) ON DELETE SET NULL, -- 关联的计划原文
+  status        TEXT NOT NULL DEFAULT 'active', -- active 进行中 | done 已结题 | archived
+  created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_topics_year ON research_topics(school_year, status);
+
+-- 教研目标。园所计划里固定分认识/能力/实践/成果四类，单列一张表便于
+-- 在每次教研活动里回看「这次研讨对应哪条目标」。
+CREATE TABLE IF NOT EXISTS research_goals (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id  INTEGER NOT NULL REFERENCES research_topics(id) ON DELETE CASCADE,
+  kind      TEXT NOT NULL,                   -- cognition 认识 | ability 能力 | practice 实践 | outcome 成果
+  content   TEXT NOT NULL,
+  seq       INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_goals_topic ON research_goals(topic_id);
+
+-- 预期成果。分认识性 / 物化 / 操作性三类，带完成标记，学期末对账用。
+CREATE TABLE IF NOT EXISTS research_outcomes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id    INTEGER NOT NULL REFERENCES research_topics(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,                 -- conceptual 认识性 | material 物化 | operational 操作性
+  title       TEXT NOT NULL,                 -- 如「《前阅读教学案例集》」
+  description TEXT,                          -- 如「不少于 12 个案例」
+  done        INTEGER NOT NULL DEFAULT 0,
+  seq         INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_outcomes_topic ON research_outcomes(topic_id);
+
+-- 月度主题模块：专题下的递进式小主题，一般一月一个。
+CREATE TABLE IF NOT EXISTS research_modules (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id    INTEGER NOT NULL REFERENCES research_topics(id) ON DELETE CASCADE,
+  seq         INTEGER NOT NULL DEFAULT 0,    -- 主题一 / 二 / 三 / 四
+  title       TEXT NOT NULL,                 -- 如「读懂经验——前阅读核心经验的内涵与发展阶段」
+  summary     TEXT,                          -- 本模块要解决什么
+  methods     TEXT,                          -- 组织方式，如「理论导读＋关键概念集体建构」
+  plan_month  TEXT,                          -- 计划月份 YYYY-MM
+  created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_modules_topic ON research_modules(topic_id, seq);
+
 -- ── 教研活动 ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS research_sessions (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id     INTEGER REFERENCES research_topics(id) ON DELETE SET NULL,
+  module_id    INTEGER REFERENCES research_modules(id) ON DELETE SET NULL,
   title        TEXT NOT NULL,
   type_key     TEXT NOT NULL,               -- ResearchTypeKey
   held_on      TEXT NOT NULL,               -- YYYY-MM-DD
@@ -65,6 +126,8 @@ CREATE TABLE IF NOT EXISTS research_sessions (
   created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_research_date ON research_sessions(held_on DESC);
+-- 依赖 topic_id / module_id 的索引建在 db.ts 的迁移之后：对已存在的表
+-- CREATE TABLE IF NOT EXISTS 是空操作，这两列此刻可能还没被 ALTER 加上。
 
 -- 听评课记录，可挂在某次教研活动下
 CREATE TABLE IF NOT EXISTS class_reviews (

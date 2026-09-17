@@ -24,6 +24,9 @@ src/lib/classify.ts   基于正文的词表分类器：分类 / 领域 / 年龄�
 src/lib/ingest.ts     落盘 → 提取 → 分类 → 入库的收档管线
 src/components/       共享 UI 与各模块的表单组件
 src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
+src/app/research/     topics/（专题）与 sessions/（教研活动）两套路由，
+                      actions.ts 管活动、topic-actions.ts 管专题
+src/lib/topic-options.ts  教研活动表单的专题/模块下拉数据，新建和编辑共用
 scripts/init-db.mts   初始化脚本
 scripts/import-docs.mts   批量导入目录（--dry 试运行）
 scripts/classify-file.mts 单文件分类试跑，调词表时用
@@ -82,3 +85,16 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 
 **11. 客户端组件里不要把 server action 包进箭头函数。**
 `<form action={(fd) => {...action(fd)}}>` 会让 Next 无法把 action 引用写进 HTML，丢失渐进增强（禁用 JS 就不能提交）。直接 `action={serverAction}`，需要在提交后做事就用 `useFormStatus` 观察 pending 的变化（见 `upload-box.tsx`）。
+
+## 教研层级相关
+
+**12. 教研的四层结构：专题 → 主题模块 → 教研活动 → 课例实践。**
+外键策略是刻意区分的：目标/成果/模块随专题 `CASCADE` 删除（它们脱离专题没有意义）；`research_sessions.topic_id` 和 `module_id` 是 `SET NULL`（删专题不该丢掉已开过的教研记录，只是变成「未归属」）。
+
+**13. 目标/成果/模块用"整批重写"而非逐条增删。**
+表单里每类一个多行文本框、一条一行，`topic-actions.ts` 里 `rewriteGoals` / `rewriteOutcomes` / `rewriteModules` 负责落库。两个必须保住的细节：
+- `rewriteOutcomes` 先记下已勾选完成的成果标题，重建后按标题还原 `done`，否则编辑一次专题就把对账结果清零。
+- `rewriteModules` 按标题匹配保留原 id，否则整批重建会让已挂靠的教研活动 `module_id` 失效。
+
+**14. 依赖新增列的索引要放 `db.ts` 的 `ADDED_INDEXES`，不能写在 schema.sql。**
+对已存在的表 `CREATE TABLE IF NOT EXISTS` 是空操作，新列是迁移里 `ALTER` 加的；索引写在 schema.sql 会在列存在之前执行而报 `no such column`。

@@ -36,6 +36,18 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ["resources", "auto_confidence", "REAL"],
   ["resources", "auto_matched", "TEXT NOT NULL DEFAULT '[]'"],
   ["resources", "reviewed", "INTEGER NOT NULL DEFAULT 0"],
+  ["research_sessions", "topic_id", "INTEGER REFERENCES research_topics(id) ON DELETE SET NULL"],
+  ["research_sessions", "module_id", "INTEGER REFERENCES research_modules(id) ON DELETE SET NULL"],
+];
+
+/**
+ * 依赖新增列的索引。
+ *
+ * 必须在 ADDED_COLUMNS 之后执行：schema.sql 里对已存在的表不会重建，
+ * 新列是 ALTER 加上的，索引若写在 schema.sql 里会在列存在之前就执行而报错。
+ */
+const ADDED_INDEXES: string[] = [
+  "CREATE INDEX IF NOT EXISTS idx_research_topic ON research_sessions(topic_id, module_id)",
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -52,6 +64,7 @@ function migrate(db: DatabaseSync): void {
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
     }
   }
+  for (const sql of ADDED_INDEXES) db.exec(sql);
 }
 
 function open(): DatabaseSync {

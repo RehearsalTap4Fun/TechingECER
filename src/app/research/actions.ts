@@ -16,8 +16,11 @@ export async function createSession(fd: FormData) {
 
   const id = run(
     `INSERT INTO research_sessions
-       (title, type_key, held_on, host, participants, topic, agenda, discussion, conclusion, action_items)
-     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+       (topic_id, module_id, title, type_key, held_on, host, participants,
+        topic, agenda, discussion, conclusion, action_items)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    Number(fd.get("topic_id")) || null,
+    Number(fd.get("module_id")) || null,
     title,
     String(fd.get("type_key")),
     String(fd.get("held_on")),
@@ -32,7 +35,7 @@ export async function createSession(fd: FormData) {
 
   revalidatePath("/research");
   revalidatePath("/");
-  redirect(`/research/${id}`);
+  redirect(`/research/sessions/${id}`);
 }
 
 export async function updateSession(fd: FormData) {
@@ -42,11 +45,13 @@ export async function updateSession(fd: FormData) {
   getDb()
     .prepare(
       `UPDATE research_sessions SET
-         title=?, type_key=?, held_on=?, host=?, participants=?,
+         topic_id=?, module_id=?, title=?, type_key=?, held_on=?, host=?, participants=?,
          topic=?, agenda=?, discussion=?, conclusion=?, action_items=?
        WHERE id=?`,
     )
     .run(
+      Number(fd.get("topic_id")) || null,
+      Number(fd.get("module_id")) || null,
       text(fd, "title") ?? "未命名教研",
       String(fd.get("type_key")),
       String(fd.get("held_on")),
@@ -60,9 +65,9 @@ export async function updateSession(fd: FormData) {
       id,
     );
 
-  revalidatePath(`/research/${id}`);
+  revalidatePath(`/research/sessions/${id}`);
   revalidatePath("/research");
-  redirect(`/research/${id}`);
+  redirect(`/research/sessions/${id}`);
 }
 
 export async function deleteSession(fd: FormData) {
@@ -94,7 +99,7 @@ export async function addClassReview(fd: FormData) {
     text(fd, "score") ? Number(text(fd, "score")) : null,
   );
 
-  if (sessionId) revalidatePath(`/research/${sessionId}`);
+  if (sessionId) revalidatePath(`/research/sessions/${sessionId}`);
   revalidatePath("/research");
 }
 
@@ -103,5 +108,5 @@ export async function deleteClassReview(fd: FormData) {
   const sessionId = Number(fd.get("session_id")) || null;
   if (!id) return;
   getDb().prepare("DELETE FROM class_reviews WHERE id=?").run(id);
-  if (sessionId) revalidatePath(`/research/${sessionId}`);
+  if (sessionId) revalidatePath(`/research/sessions/${sessionId}`);
 }

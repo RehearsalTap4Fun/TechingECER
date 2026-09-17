@@ -222,6 +222,37 @@ export const DAILY_SCENES = [
   "离园",
 ] as const;
 
+/** 教研专题的类型 */
+export const TOPIC_KINDS = [
+  { key: "topic", label: "专题教研", hint: "围绕一条主线的学期/学年教研" },
+  { key: "project", label: "小课题", hint: "有研究周期与结题成果的课题研究" },
+  { key: "training", label: "教师培养", hint: "分层梯队的园本培养计划" },
+] as const;
+
+export type TopicKindKey = (typeof TOPIC_KINDS)[number]["key"];
+
+/**
+ * 教研目标的四个层次。
+ * 园所的专题教研计划普遍按这四类写，逐条落到具体的教研活动上才不会流于口号。
+ */
+export const GOAL_KINDS = [
+  { key: "cognition", label: "认识目标", hint: "教师要澄清哪些概念、改变哪些认识" },
+  { key: "ability", label: "能力目标", hint: "教师要掌握哪些可操作的方法" },
+  { key: "practice", label: "实践目标", hint: "每位教师要完成哪些实践任务" },
+  { key: "outcome", label: "成果目标", hint: "要形成哪些可沉淀的产物" },
+] as const;
+
+export type GoalKindKey = (typeof GOAL_KINDS)[number]["key"];
+
+/** 预期成果的三种形态 */
+export const OUTCOME_KINDS = [
+  { key: "conceptual", label: "认识性成果", hint: "达成的共识与判断标准" },
+  { key: "material", label: "物化成果", hint: "手册、案例集、课例等实物产出" },
+  { key: "operational", label: "操作性成果", hint: "可复用的操作路径与推进节奏" },
+] as const;
+
+export type OutcomeKindKey = (typeof OUTCOME_KINDS)[number]["key"];
+
 /** 教研活动类型 */
 export const RESEARCH_TYPES = [
   { key: "open-class", label: "公开课/观摩课" },

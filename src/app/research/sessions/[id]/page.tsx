@@ -3,14 +3,20 @@ import Link from "next/link";
 import { all, one } from "@/lib/db";
 import { RESEARCH_TYPES } from "@/lib/domain";
 import { Button, Card, Field, PageHeader, Tag } from "@/components/ui";
-import { addClassReview, deleteClassReview, deleteSession } from "../actions";
+import { addClassReview, deleteClassReview, deleteSession } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
 const TYPE_LABEL = new Map(RESEARCH_TYPES.map((t) => [t.key, t.label]));
+const CN_NUM = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 
 interface Session {
   id: number;
+  topic_id: number | null;
+  module_id: number | null;
+  topic_title: string | null;
+  module_title: string | null;
+  module_seq: number | null;
   title: string;
   type_key: string;
   held_on: string;
@@ -47,8 +53,23 @@ function Section({ title, body }: { title: string; body: string | null }) {
 export default async function ResearchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sid = Number(id);
-  const session = one<Session>("SELECT * FROM research_sessions WHERE id = ?", sid);
+  const session = one<Session>(
+    `SELECT s.*, t.title AS topic_title, m.title AS module_title, m.seq AS module_seq
+       FROM research_sessions s
+       LEFT JOIN research_topics t ON t.id = s.topic_id
+       LEFT JOIN research_modules m ON m.id = s.module_id
+      WHERE s.id = ?`,
+    sid,
+  );
   if (!session) notFound();
+
+  // 专题目标随活动一起展示：回看这次研讨对准了哪一条
+  const topicGoals = session.topic_id
+    ? all<{ kind: string; content: string }>(
+        "SELECT kind, content FROM research_goals WHERE topic_id=? ORDER BY kind, seq",
+        session.topic_id,
+      )
+    : [];
 
   const reviews = all<Review>(
     `SELECT r.*, c.name AS class_name
@@ -67,7 +88,7 @@ export default async function ResearchDetailPage({ params }: { params: Promise<{
         action={
           <div className="no-print flex gap-2">
             <Link
-              href={`/research/${session.id}/edit`}
+              href={`/research/sessions/${session.id}/edit`}
               className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-brand-50 dark:hover:bg-brand-900/30"
               style={{ borderColor: "var(--border)" }}
             >
@@ -80,6 +101,38 @@ export default async function ResearchDetailPage({ params }: { params: Promise<{
           </div>
         }
       />
+
+      {session.topic_id && (
+        <Card className="mb-6">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span style={{ color: "var(--muted)" }}>所属专题</span>
+            <Link href={`/research/topics/${session.topic_id}`} className="font-medium text-brand-600 underline underline-offset-2">
+              {session.topic_title}
+            </Link>
+            {session.module_title && (
+              <>
+                <span style={{ color: "var(--muted)" }}>›</span>
+                <span>
+                  主题{CN_NUM[session.module_seq ?? 0] ?? (session.module_seq ?? 0) + 1}：{session.module_title}
+                </span>
+              </>
+            )}
+          </div>
+
+          {topicGoals.length > 0 && (
+            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+              <p className="mb-1.5 text-xs font-medium" style={{ color: "var(--muted)" }}>
+                本专题目标
+              </p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                {topicGoals.map((g, i) => (
+                  <li key={i}>{g.content}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
 
       {session.participants && (
         <Card className="mb-6">
