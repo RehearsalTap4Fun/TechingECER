@@ -3,12 +3,14 @@ import { all, parseJsonArray, scalar } from "@/lib/db";
 import { RESOURCE_CATEGORIES } from "@/lib/domain";
 import { syncLibrary } from "@/lib/library";
 import { getLibraryDir } from "@/lib/settings";
+import { isLocalRequest } from "@/lib/reveal";
 import { Button, Card, EmptyState, PageHeader, Tag } from "@/components/ui";
 import { LibrarySetup } from "@/components/library-setup";
 import { ResourceCard, type ResourceView } from "@/components/resource-card";
 import {
   archiveResource,
   bindLibrary,
+  revealResource,
   purgeMissing,
   reclassifyResource,
   rescanLibrary,
@@ -77,6 +79,8 @@ export default async function ResourcesPage({
   const { q, category, tab } = await searchParams;
 
   const dir = getLibraryDir();
+  // 同机访问才提供「在文件管理器中定位」，否则打开的是服务器那台机器
+  const local = await isLocalRequest();
   // 进入本页即自动索引；内部按 size+mtime 跳过没变的文件，日常几乎不花时间
   const sync = dir ? await syncLibrary() : null;
 
@@ -252,6 +256,8 @@ export default async function ResourcesPage({
               onArchive={archiveResource}
               onReclassify={reclassifyResource}
               onUnarchive={unarchiveResource}
+              onReveal={revealResource}
+              local={local}
             />
           ))}
         </div>

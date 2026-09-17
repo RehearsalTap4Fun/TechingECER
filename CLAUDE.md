@@ -24,6 +24,7 @@ src/lib/classify.ts   基于正文的词表分类器：分类 / 领域 / 年龄�
 src/lib/settings.ts   key/value 设置，目前只存绑定的资料目录
 src/lib/library.ts    资料目录扫描与索引同步（原地索引，不复制文件）
 src/lib/files.ts      文件取回 URL，服务端与客户端组件共用
+src/lib/reveal.ts     在本机文件管理器中定位/打开文件，含本机判定
 src/app/api/files/[...path]/route.ts  资料目录文件的取回入口
 src/components/       共享 UI 与各模块的表单组件
 src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
@@ -131,3 +132,9 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 
 **23. `useActionState` 的表单用另一套渐进增强编码。**
 不是 `$ACTION_ID_*`，而是 `$ACTION_REF_1` / `$ACTION_1:0` / `$ACTION_1:1` / `$ACTION_KEY`。用 curl 测这类表单时要把这几个隐藏域原样带上。
+
+**24. 「在文件管理器中定位」只能在本机做，且要在动作里再挡一次。**
+`isLocalRequest()` 按 Host 头判断（`localhost` / `127.0.0.1` 为本机）。界面渲染时据此决定是「定位按钮」还是「下载链接」，`revealResource` 动作里再挡一次——渲染层的判断不能当作安全边界，动作可以被直接调用。判断刻意保守：同机但用局域网 IP 访问会被判为远程，代价只是退回下载，不会误在服务器上弹窗。
+
+**25. 调系统命令一律用 `execFile` 传参数数组。**
+不走 shell，避免命令注入；路径必须先经 `resolveInLibrary` 校验在资料目录内。各平台命令见 `commandFor()`；注意 Windows 的 `explorer /select` 成功时也返回非 0 退出码，要特判。

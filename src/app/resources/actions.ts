@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
-import { checkDir, syncLibrary } from "@/lib/library";
+import { checkDir, resolveInLibrary, syncLibrary } from "@/lib/library";
+import { isLocalRequest, revealPath, type RevealMode } from "@/lib/reveal";
 import { LIBRARY_DIR, clearSetting, setSetting } from "@/lib/settings";
+import { one } from "@/lib/db";
 
 function text(fd: FormData, key: string): string | null {
   const v = fd.get(key);
@@ -85,4 +87,38 @@ export async function purgeMissing() {
   getDb().prepare("DELETE FROM resources WHERE missing = 1").run();
   revalidatePath("/resources");
   revalidatePath("/");
+}
+
+export interface RevealState {
+  error?: string;
+  ok?: string;
+}
+
+/**
+ * 在本机文件管理器里定位（reveal）或直接打开（open）一份资料。
+ *
+ * 非本机请求一律拒绝——那样打开的是服务器那台机器的窗口。界面在渲染时
+ * 就已经按是否本机决定了展示方式，这里再挡一次，防止动作被直接调用。
+ */
+export async function revealResource(_prev: RevealState, fd: FormData): Promise<RevealState> {
+  if (!(await isLocalRequest())) {
+    return { error: "只有在运行本应用的那台机器上才能定位文件，请改用下载" };
+  }
+
+  const id = Number(fd.get("id"));
+  const mode = (String(fd.get("mode") || "reveal") === "open" ? "open" : "reveal") as RevealMode;
+  if (!id) return { error: "缺少资料 id" };
+
+  const row = one<{ rel_path: string | null }>(
+    "SELECT rel_path FROM resources WHERE id = ?",
+    id,
+  );
+  if (!row?.rel_path) return { error: "这条资料没有关联本地文件" };
+
+  const abs = resolveInLibrary(row.rel_path);
+  if (!abs) return { error: "资料目录未绑定，或路径已失效" };
+
+  const r = await revealPath(abs, mode);
+  if (!r.ok) return { error: r.error };
+  return { ok: mode === "reveal" ? "已在文件管理器中定位" : "已用默认程序打开" };
 }

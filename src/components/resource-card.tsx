@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AGE_GROUPS, AGE_GROUP_MAP, DOMAINS, DOMAIN_MAP, RESOURCE_CATEGORIES } from "@/lib/domain";
 import { Card, Tag } from "@/components/ui";
 import { fileHref } from "@/lib/files";
+import { FileOpenButton } from "@/components/file-open-button";
+import type { RevealState } from "@/app/resources/actions";
 
 export interface ResourceView {
   id: number;
@@ -52,11 +54,17 @@ export function ResourceCard({
   onArchive,
   onReclassify,
   onUnarchive,
+  onReveal,
+  local = false,
 }: {
   r: ResourceView;
   onArchive?: (fd: FormData) => void;
   onReclassify?: (fd: FormData) => void;
   onUnarchive?: (fd: FormData) => void;
+  /** 在本机文件管理器里定位/打开 */
+  onReveal?: (prev: RevealState, fd: FormData) => Promise<RevealState>;
+  /** 浏览器与服务端是否在同一台机器 */
+  local?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -68,6 +76,8 @@ export function ResourceCard({
 
   const href = r.rel_path ? fileHref(r.rel_path) : r.url;
   const previewable = PREVIEWABLE.has(r.extract_kind ?? "");
+  // 本机 + 文件还在 + 有定位动作，才走「在文件管理器中定位」
+  const canOpenLocally = local && !!onReveal && !!r.rel_path && r.missing === 0;
 
   return (
     <Card
@@ -76,7 +86,10 @@ export function ResourceCard({
       }
     >
       <div className="flex items-start justify-between gap-3">
-        {href && r.missing === 0 ? (
+        {canOpenLocally ? (
+          // 本机：点标题在访达/资源管理器里定位到这份文件
+          <FileOpenButton action={onReveal!} id={r.id} label={r.title} />
+        ) : href && r.missing === 0 ? (
           <a
             href={href}
             target="_blank"
@@ -90,6 +103,15 @@ export function ResourceCard({
         )}
 
         <div className="flex shrink-0 items-center gap-3">
+          {canOpenLocally && (
+            <FileOpenButton
+              action={onReveal!}
+              id={r.id}
+              label="打开"
+              mode="open"
+              title="用默认程序打开这份文件"
+            />
+          )}
           {href && r.missing === 0 && (
             <a href={`${href}?download=1`} className="text-xs underline" style={{ color: "var(--muted)" }}>
               下载
@@ -135,7 +157,15 @@ export function ResourceCard({
         {r.extract_kind && (
           <Tag>
             {KIND_LABEL[r.extract_kind] ?? r.extract_kind}
-            {href && r.missing === 0 ? (previewable ? " · 可预览" : " · 点击下载") : ""}
+            {r.missing === 1
+              ? ""
+              : canOpenLocally
+                ? " · 点击定位"
+                : href
+                  ? previewable
+                    ? " · 可预览"
+                    : " · 点击下载"
+                  : ""}
           </Tag>
         )}
         {r.file_size !== null && <Tag>{sizeLabel(r.file_size)}</Tag>}
