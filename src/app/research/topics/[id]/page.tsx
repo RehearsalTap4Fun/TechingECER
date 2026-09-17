@@ -23,6 +23,7 @@ interface Topic {
   theory_basis: string | null;
   start_on: string | null;
   end_on: string | null;
+  doc_resource_id: number | null;
   status: string;
 }
 
@@ -151,6 +152,14 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
         {topic.team && (
           <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
             参与：{topic.team}
+          </p>
+        )}
+        {topic.doc_resource_id && (
+          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            由计划文档导入 ·{" "}
+            <Link href="/resources" className="text-brand-600 underline">
+              在资源库中查看原件
+            </Link>
           </p>
         )}
       </Card>

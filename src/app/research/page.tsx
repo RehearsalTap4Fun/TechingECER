@@ -61,6 +61,9 @@ export default function ResearchPage() {
         action={
           <div className="flex gap-2">
             <LinkButton href="/research/topics/new">＋ 新建专题</LinkButton>
+            <LinkButton href="/research/topics/import" variant="ghost">
+              从计划文档导入
+            </LinkButton>
             <LinkButton href="/research/sessions/new" variant="ghost">
               ＋ 单次教研
             </LinkButton>
@@ -71,7 +74,7 @@ export default function ResearchPage() {
       {topics.length === 0 && loose.length === 0 ? (
         <EmptyState
           title="还没有教研记录"
-          hint="先建一个学期专题（背景、四类目标、月度主题模块、预期成果），之后每次教研活动挂在对应模块下，学期末就能直接对账。"
+          hint="先建一个学期专题（背景、四类目标、月度主题模块、预期成果），之后每次教研活动挂在对应模块下，学期末就能直接对账。已有计划文档的话，上传到资源库后可直接导入。"
           action={
             <LinkButton href="/research/topics/new" variant="ghost">
               ＋ 新建专题

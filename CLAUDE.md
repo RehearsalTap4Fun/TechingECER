@@ -27,6 +27,8 @@ src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ �
 src/app/research/     topics/（专题）与 sessions/（教研活动）两套路由，
                       actions.ts 管活动、topic-actions.ts 管专题
 src/lib/topic-options.ts  教研活动表单的专题/模块下拉数据，新建和编辑共用
+src/lib/plan-parser.ts    教研计划文档 → 专题草稿的解析器
+src/lib/plan-import.ts    从资源库取正文、把草稿摊平成表单初值
 scripts/init-db.mts   初始化脚本
 scripts/import-docs.mts   批量导入目录（--dry 试运行）
 scripts/classify-file.mts 单文件分类试跑，调词表时用
@@ -98,3 +100,9 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 
 **14. 依赖新增列的索引要放 `db.ts` 的 `ADDED_INDEXES`，不能写在 schema.sql。**
 对已存在的表 `CREATE TABLE IF NOT EXISTS` 是空操作，新列是迁移里 `ALTER` 加的；索引写在 schema.sql 会在列存在之前执行而报 `no such column`。
+
+**15. 计划解析按表头关键词匹配，不认死编号。**
+`plan-parser.ts` 用「章节标题含『背景』/『目标』/『内容』/『预期成果』」来定位，因为各园措辞不一（「专题教研背景」vs「编制依据」）。解析不到的部分记进 `missing` 并在界面标出「需手填」——和文档分类一样，系统只给草稿，由人确认后才入库。
+
+**16. Word 表格会被提取成一行一个单元格。**
+`extract.ts` 对 OOXML 是按段落/行边界补换行的，表格的每个单元格因此各占一行。解析条目时要滤掉「完成时间」「产出组别」这类列（见 `TABLE_NOISE_RE`）——一份汇总计划曾因此解析出 22 条成果，实际只有 11 条。

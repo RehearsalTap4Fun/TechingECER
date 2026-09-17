@@ -94,8 +94,8 @@ export async function createTopic(fd: FormData) {
     id = run(
       `INSERT INTO research_topics
          (title, subtitle, kind, school_year, term, leader, team,
-          background, theory_basis, start_on, end_on, status)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,'active')`,
+          background, theory_basis, start_on, end_on, doc_resource_id, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active')`,
       title,
       text(fd, "subtitle"),
       String(fd.get("kind") ?? "topic"),
@@ -107,6 +107,7 @@ export async function createTopic(fd: FormData) {
       text(fd, "theory_basis"),
       text(fd, "start_on"),
       text(fd, "end_on"),
+      Number(fd.get("doc_resource_id")) || null,
     );
     rewriteGoals(id, fd);
     rewriteOutcomes(id, fd);

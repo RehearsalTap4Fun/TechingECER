@@ -12,7 +12,8 @@
     "db:reset": "rm -f data/teaching-ecer.db && npm run db:init",
     "classify": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/classify-file.mts",
     "import": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/import-docs.mts",
-    "classify:eval": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/classify-eval.mts"
+    "classify:eval": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/classify-eval.mts",
+    "parse": "node --experimental-strip-types --import ./scripts/alias-loader.mjs scripts/parse-plan.mts"
   },
   "dependencies": {
     "fflate": "^0.8.3",

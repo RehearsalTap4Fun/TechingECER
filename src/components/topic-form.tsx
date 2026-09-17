@@ -21,6 +21,8 @@ export interface TopicFormValues {
   goals?: Record<string, string>;
   outcomes?: Record<string, string>;
   modules?: string;
+  /** 从资源库某份计划文档导入时，记下出处 */
+  doc_resource_id?: number | null;
 }
 
 export function TopicForm({
@@ -37,6 +39,9 @@ export function TopicForm({
   return (
     <form action={action} className="space-y-6">
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
+      {initial.doc_resource_id && (
+        <input type="hidden" name="doc_resource_id" value={initial.doc_resource_id} />
+      )}
 
       <Card>
         <div className="grid gap-4 sm:grid-cols-2">
