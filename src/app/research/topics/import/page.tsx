@@ -23,6 +23,7 @@ export default function ImportPlanPage() {
        FROM resources r
        LEFT JOIN research_topics t ON t.doc_resource_id = r.id
       WHERE r.content_text IS NOT NULL AND length(r.content_text) > 200
+        AND r.missing = 0
       ORDER BY r.id DESC`,
   );
 

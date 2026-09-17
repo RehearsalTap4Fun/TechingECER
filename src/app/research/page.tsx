@@ -2,6 +2,7 @@ import Link from "next/link";
 import { all } from "@/lib/db";
 import { RESEARCH_TYPES, TOPIC_KINDS } from "@/lib/domain";
 import { Card, EmptyState, LinkButton, PageHeader, Tag } from "@/components/ui";
+import { RelatedResources } from "@/components/related-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,7 @@ export default function ResearchPage() {
           </div>
         </>
       )}
+      <RelatedResources categories={["培训资料", "政策文件"]} title="相关资料 · 教研与政策" />
     </>
   );
 }

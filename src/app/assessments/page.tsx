@@ -2,6 +2,7 @@ import Link from "next/link";
 import { all } from "@/lib/db";
 import { Card, EmptyState, LinkButton, PageHeader, Tag } from "@/components/ui";
 import { qualityLevel } from "@/lib/ecers";
+import { RelatedResources } from "@/components/related-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,7 @@ export default function AssessmentsPage() {
           ))}
         </div>
       )}
+      <RelatedResources categories={["政策文件"]} title="相关资料 · 政策依据" />
     </>
   );
 }

@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getDb, run, toJsonArray } from "@/lib/db";
-import { MAX_FILE_BYTES, ingestFile } from "@/lib/ingest";
+import { getDb } from "@/lib/db";
+import { checkDir, syncLibrary } from "@/lib/library";
+import { LIBRARY_DIR, clearSetting, setSetting } from "@/lib/settings";
 
 function text(fd: FormData, key: string): string | null {
   const v = fd.get(key);
@@ -10,61 +11,56 @@ function text(fd: FormData, key: string): string | null {
   return s === "" ? null : s;
 }
 
-export async function createResource(fd: FormData) {
-  const title = text(fd, "title");
-  if (!title) throw new Error("标题不能为空");
+export interface BindState {
+  error?: string;
+  ok?: string;
+}
 
-  run(
-    "INSERT INTO resources (title, category, domain_key, age_group, url, description, tags) VALUES (?,?,?,?,?,?,?)",
-    title,
-    String(fd.get("category")),
-    text(fd, "domain_key"),
-    text(fd, "age_group"),
-    text(fd, "url"),
-    text(fd, "description"),
-    toJsonArray((text(fd, "tags") ?? "").split(/[,，\s]+/).filter(Boolean)),
-  );
+/** 首次使用：绑定资料目录，并立刻做一次全量扫描 */
+export async function bindLibrary(_prev: BindState, fd: FormData): Promise<BindState> {
+  const dir = text(fd, "dir") ?? "";
+  const check = await checkDir(dir);
+  if (!check.ok) return { error: check.error };
 
+  setSetting(LIBRARY_DIR, dir.trim());
+  const r = await syncLibrary({ force: true });
+
+  revalidatePath("/resources");
+  revalidatePath("/");
+  return { ok: `已绑定，索引到 ${r.added} 份文档` };
+}
+
+export async function unbindLibrary() {
+  clearSetting(LIBRARY_DIR);
+  // 索引随之作废：文件本身没动，只是应用不再跟踪它们
+  getDb().prepare("DELETE FROM resources WHERE rel_path IS NOT NULL").run();
   revalidatePath("/resources");
   revalidatePath("/");
 }
 
-export async function deleteResource(fd: FormData) {
+/** 手动重新扫描，用于刚往目录里放了文件、不想等页面缓存的场景 */
+export async function rescanLibrary() {
+  await syncLibrary({ force: true });
+  revalidatePath("/resources");
+  revalidatePath("/");
+}
+
+/** 归档：确认系统给的分类 */
+export async function archiveResource(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
-  getDb().prepare("DELETE FROM resources WHERE id=?").run(id);
-  revalidatePath("/resources");
-}
-
-/**
- * 上传文档并按正文内容自动分类。
- *
- * 支持多选，逐个处理：一个文件解析失败不应连累其他文件，
- * 失败的那个仍然入库（只是没有正文和分类依据），由教师手工归类。
- */
-export async function uploadDocuments(fd: FormData) {
-  const files = fd.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  if (files.length === 0) return;
-
-  for (const file of files) {
-    if (file.size > MAX_FILE_BYTES) continue;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    await ingestFile(file.name, bytes);
-  }
-
+  getDb().prepare("UPDATE resources SET reviewed = 1 WHERE id = ?").run(id);
   revalidatePath("/resources");
   revalidatePath("/");
 }
 
-/** 人工改判分类，同时标记为已复核 */
+/** 改判分类并归档 */
 export async function reclassifyResource(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
 
   getDb()
-    .prepare(
-      "UPDATE resources SET category=?, domain_key=?, age_group=?, reviewed=1 WHERE id=?",
-    )
+    .prepare("UPDATE resources SET category=?, domain_key=?, age_group=?, reviewed=1 WHERE id=?")
     .run(
       String(fd.get("category")),
       (fd.get("domain_key") as string) || null,
@@ -73,12 +69,20 @@ export async function reclassifyResource(fd: FormData) {
     );
 
   revalidatePath("/resources");
+  revalidatePath("/");
 }
 
-/** 确认系统判定无误 */
-export async function confirmResource(fd: FormData) {
+/** 撤回归档，退回待归档队列 */
+export async function unarchiveResource(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
-  getDb().prepare("UPDATE resources SET reviewed=1 WHERE id=?").run(id);
+  getDb().prepare("UPDATE resources SET reviewed = 0 WHERE id = ?").run(id);
   revalidatePath("/resources");
+}
+
+/** 清理已失联的索引记录（文件已从目录中删除） */
+export async function purgeMissing() {
+  getDb().prepare("DELETE FROM resources WHERE missing = 1").run();
+  revalidatePath("/resources");
+  revalidatePath("/");
 }

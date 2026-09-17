@@ -2,6 +2,7 @@ import Link from "next/link";
 import { all, parseJsonArray } from "@/lib/db";
 import { AGE_GROUPS, AGE_GROUP_MAP, DOMAINS, DOMAIN_MAP } from "@/lib/domain";
 import { Card, EmptyState, LinkButton, PageHeader, Tag } from "@/components/ui";
+import { RelatedResources } from "@/components/related-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,7 @@ export default async function LessonsPage({
           })}
         </div>
       )}
+      <RelatedResources categories={["课程方案", "绘本书单", "音乐律动"]} title="相关资料 · 课程与素材" />
     </>
   );
 }

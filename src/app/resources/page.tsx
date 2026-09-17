@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { all, parseJsonArray, scalar } from "@/lib/db";
-import { AGE_GROUPS, DOMAINS, RESOURCE_CATEGORIES } from "@/lib/domain";
-import { Button, Card, EmptyState, Field, PageHeader } from "@/components/ui";
-import { UploadBox } from "@/components/upload-box";
+import { RESOURCE_CATEGORIES } from "@/lib/domain";
+import { syncLibrary } from "@/lib/library";
+import { getLibraryDir } from "@/lib/settings";
+import { Button, Card, EmptyState, PageHeader, Tag } from "@/components/ui";
+import { LibrarySetup } from "@/components/library-setup";
 import { ResourceCard, type ResourceView } from "@/components/resource-card";
 import {
-  confirmResource,
-  createResource,
-  deleteResource,
+  archiveResource,
+  bindLibrary,
+  purgeMissing,
   reclassifyResource,
-  uploadDocuments,
+  rescanLibrary,
+  unarchiveResource,
+  unbindLibrary,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +25,7 @@ interface Row {
   domain_key: string | null;
   age_group: string | null;
   url: string | null;
-  file_path: string | null;
+  rel_path: string | null;
   file_name: string | null;
   file_size: number | null;
   extract_kind: string | null;
@@ -32,57 +36,25 @@ interface Row {
   auto_confidence: number | null;
   auto_matched: string;
   reviewed: number;
+  missing: number;
 }
 
-/** 从正文里截取命中检索词前后的一段，用于结果预览 */
 function snippetAround(text: string | null, q: string): string | null {
   if (!text || !q) return null;
   const i = text.indexOf(q);
   if (i === -1) return null;
-  const start = Math.max(0, i - 40);
-  return text.slice(start, start + 140).replace(/\s+/g, " ");
+  return text.slice(Math.max(0, i - 40), Math.max(0, i - 40) + 140).replace(/\s+/g, " ");
 }
 
-export default async function ResourcesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; category?: string; pending?: string }>;
-}) {
-  const { q, category, pending } = await searchParams;
-
-  const where: string[] = [];
-  const params: unknown[] = [];
-  if (q) {
-    // 正文一并参与检索——这正是自动提取文本的附带收益
-    where.push("(title LIKE ? OR description LIKE ? OR tags LIKE ? OR content_text LIKE ?)");
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
-  }
-  if (category) {
-    where.push("category = ?");
-    params.push(category);
-  }
-  if (pending === "1") {
-    where.push("reviewed = 0 AND auto_category IS NOT NULL");
-  }
-
-  const rows = all<Row>(
-    `SELECT * FROM resources ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-      ORDER BY reviewed ASC, id DESC`,
-    ...params,
-  );
-
-  const pendingCount = scalar(
-    "SELECT count(*) FROM resources WHERE reviewed = 0 AND auto_category IS NOT NULL",
-  );
-
-  const views: ResourceView[] = rows.map((r) => ({
+function toView(r: Row, q?: string): ResourceView {
+  return {
     id: r.id,
     title: r.title,
     category: r.category,
     domain_key: r.domain_key,
     age_group: r.age_group,
     url: r.url,
-    file_path: r.file_path,
+    rel_path: r.rel_path,
     file_name: r.file_name,
     file_size: r.file_size,
     extract_kind: r.extract_kind,
@@ -92,12 +64,70 @@ export default async function ResourcesPage({
     auto_confidence: r.auto_confidence,
     auto_matched: parseJsonArray(r.auto_matched),
     reviewed: r.reviewed,
+    missing: r.missing,
     snippet: q ? snippetAround(r.content_text, q) : null,
-  }));
+  };
+}
+
+export default async function ResourcesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string; tab?: string }>;
+}) {
+  const { q, category, tab } = await searchParams;
+
+  const dir = getLibraryDir();
+  // 进入本页即自动索引；内部按 size+mtime 跳过没变的文件，日常几乎不花时间
+  const sync = dir ? await syncLibrary() : null;
+
+  if (!dir) {
+    return (
+      <>
+        <PageHeader
+          title="资源库"
+          description="这是一个本地工具——绑定你自己的资料目录，文档放进去就会被自动索引和分类，文件始终留在原处。"
+        />
+        <LibrarySetup action={bindLibrary} />
+      </>
+    );
+  }
+
+  const view = tab === "archived" ? "archived" : tab === "missing" ? "missing" : "pending";
+
+  const where: string[] = ["rel_path IS NOT NULL"];
+  const params: unknown[] = [];
+
+  if (view === "missing") {
+    where.push("missing = 1");
+  } else {
+    where.push("missing = 0");
+    where.push(view === "archived" ? "reviewed = 1" : "reviewed = 0");
+  }
+  if (q) {
+    where.push("(title LIKE ? OR description LIKE ? OR tags LIKE ? OR content_text LIKE ?)");
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  if (category) {
+    where.push("category = ?");
+    params.push(category);
+  }
+
+  const rows = all<Row>(
+    `SELECT * FROM resources WHERE ${where.join(" AND ")} ORDER BY id DESC`,
+    ...params,
+  );
+
+  const pendingCount = scalar(
+    "SELECT count(*) FROM resources WHERE rel_path IS NOT NULL AND missing = 0 AND reviewed = 0",
+  );
+  const archivedCount = scalar(
+    "SELECT count(*) FROM resources WHERE rel_path IS NOT NULL AND missing = 0 AND reviewed = 1",
+  );
+  const missingCount = scalar("SELECT count(*) FROM resources WHERE rel_path IS NOT NULL AND missing = 1");
 
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ q, category, pending, ...patch })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ q, category, tab, ...patch })) if (v) p.set(k, v);
     const s = p.toString();
     return s ? `/resources?${s}` : "/resources";
   };
@@ -119,14 +149,49 @@ export default async function ResourcesPage({
     <>
       <PageHeader
         title="资源库"
-        description="上传的文档会按正文内容自动判定分类、领域和年龄班，检索可直接命中文档正文。"
+        description="索引自你绑定的资料目录。待归档的文档在这里等待确认分类，归档后会出现在对应模块的「相关资料」中。"
+        action={
+          <form action={rescanLibrary} className="no-print">
+            <Button variant="ghost">重新扫描</Button>
+          </form>
+        }
       />
 
-      <UploadBox action={uploadDocuments} />
+      <Card className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              资料目录
+            </p>
+            <p className="truncate font-mono text-xs">{dir}</p>
+          </div>
+          <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted)" }}>
+            {sync && (sync.added > 0 || sync.updated > 0 || sync.restored > 0) && (
+              <span>
+                本次扫描：新增 {sync.added} · 更新 {sync.updated}
+                {sync.restored > 0 && ` · 恢复 ${sync.restored}`}
+              </span>
+            )}
+            {sync?.error && <span style={{ color: "#ef4444" }}>{sync.error}</span>}
+            <details className="no-print">
+              <summary className="cursor-pointer underline">更换目录</summary>
+              <div className="mt-3 w-[min(90vw,32rem)]">
+                <LibrarySetup action={bindLibrary} current={dir} />
+                <form action={unbindLibrary} className="mt-2">
+                  <button className="text-xs underline" style={{ color: "var(--muted)" }}>
+                    解除绑定（只清索引，不动你的文件）
+                  </button>
+                </form>
+              </div>
+            </details>
+          </div>
+        </div>
+      </Card>
 
       <Card className="mb-6">
         <form action="/resources" className="mb-4">
           {category && <input type="hidden" name="category" value={category} />}
+          {tab && <input type="hidden" name="tab" value={tab} />}
           <input
             name="q"
             defaultValue={q ?? ""}
@@ -134,97 +199,63 @@ export default async function ResourcesPage({
             placeholder="搜索标题、标签，或文档正文内容…"
           />
         </form>
+
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {chip(`待归档 ${pendingCount}`, qs({ tab: undefined }), view === "pending")}
+          {chip(`已归档 ${archivedCount}`, qs({ tab: "archived" }), view === "archived")}
+          {missingCount > 0 && chip(`已失联 ${missingCount}`, qs({ tab: "missing" }), view === "missing")}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          {chip("全部", qs({ category: undefined, pending: undefined }), !category && pending !== "1")}
-          {pendingCount > 0 &&
-            chip(`待复核 ${pendingCount}`, qs({ pending: "1", category: undefined }), pending === "1")}
-          {RESOURCE_CATEGORIES.map((c) =>
-            chip(c, qs({ category: c, pending: undefined }), category === c),
-          )}
+          {chip("全部分类", qs({ category: undefined }), !category)}
+          {RESOURCE_CATEGORIES.map((c) => chip(c, qs({ category: c }), category === c))}
         </div>
       </Card>
 
-      {views.length === 0 ? (
+      {view === "missing" && missingCount > 0 && (
+        <Card className="mb-6">
+          <p className="text-sm">
+            这些文件已不在资料目录里（被删除、改名或移走）。索引记录保留着，
+            以免只是临时移动就丢掉已做的分类——文件放回原处后会自动恢复。
+          </p>
+          <form action={purgeMissing} className="no-print mt-3">
+            <Button variant="ghost">确认清理这 {missingCount} 条记录</Button>
+          </form>
+        </Card>
+      )}
+
+      {rows.length === 0 ? (
         <EmptyState
-          title={q || category || pending ? "没有符合条件的资源" : "资源库还是空的"}
+          title={
+            q || category
+              ? "没有符合条件的资料"
+              : view === "archived"
+                ? "还没有归档的资料"
+                : view === "missing"
+                  ? "没有失联的文件"
+                  : "待归档队列是空的"
+          }
           hint={
-            q || category || pending
+            q || category
               ? "换个条件试试。"
-              : "把常用的教研计划、绘本书单、政策文件拖进上面的上传区，系统会自动归类。批量导入历史资料可用 npm run import -- <目录>。"
+              : view === "pending"
+                ? `把文档放进 ${dir}，回到本页就会自动索引并给出分类建议。`
+                : "在「待归档」里确认分类后，资料会出现在这里，并同步到对应模块。"
           }
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {views.map((r) => (
+          {rows.map((r) => (
             <ResourceCard
               key={r.id}
-              r={r}
+              r={toView(r, q)}
+              onArchive={archiveResource}
               onReclassify={reclassifyResource}
-              onConfirm={confirmResource}
-              onDelete={deleteResource}
+              onUnarchive={unarchiveResource}
             />
           ))}
         </div>
       )}
-
-      {/* 没有文件、只有一个外链的资源仍然可以手工登记 */}
-      <details className="no-print mt-8">
-        <summary className="cursor-pointer text-sm" style={{ color: "var(--muted)" }}>
-          手工登记一条外链资源（无文件）
-        </summary>
-        <Card className="mt-3">
-          <form action={createResource} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-4">
-              <div className="sm:col-span-2">
-                <Field label="标题">
-                  <input name="title" required className="field" />
-                </Field>
-              </div>
-              <Field label="分类">
-                <select name="category" className="field" defaultValue="课程方案">
-                  {RESOURCE_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="领域">
-                <select name="domain_key" className="field" defaultValue="">
-                  <option value="">不限</option>
-                  {DOMAINS.map((d) => (
-                    <option key={d.key} value={d.key}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="年龄班">
-                <select name="age_group" className="field" defaultValue="">
-                  <option value="">不限</option>
-                  {AGE_GROUPS.map((g) => (
-                    <option key={g.key} value={g.key}>
-                      {g.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label="链接">
-                  <input name="url" className="field" placeholder="https://…" />
-                </Field>
-              </div>
-              <Field label="标签">
-                <input name="tags" className="field" />
-              </Field>
-            </div>
-            <Field label="说明">
-              <textarea name="description" rows={2} className="field" />
-            </Field>
-            <Button>添加</Button>
-          </form>
-        </Card>
-      </details>
     </>
   );
 }

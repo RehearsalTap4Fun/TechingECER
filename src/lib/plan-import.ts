@@ -1,8 +1,7 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { one } from "@/lib/db";
 import { extractText } from "@/lib/extract";
-import { UPLOAD_ROOT } from "@/lib/ingest";
+import { resolveInLibrary } from "@/lib/library";
 import { parsePlan, type PlanDraft } from "@/lib/plan-parser";
 import type { TopicFormValues } from "@/components/topic-form";
 
@@ -18,18 +17,20 @@ export async function draftFromResource(
   const row = one<{
     file_name: string | null;
     title: string;
-    file_path: string | null;
+    rel_path: string | null;
     content_text: string | null;
-  }>("SELECT file_name, title, file_path, content_text FROM resources WHERE id = ?", resourceId);
+  }>("SELECT file_name, title, rel_path, content_text FROM resources WHERE id = ?", resourceId);
 
   if (!row) return null;
 
   const fileName = row.file_name ?? row.title;
   let text = row.content_text ?? "";
 
-  if (!text && row.file_path) {
+  if (!text && row.rel_path) {
+    const abs = resolveInLibrary(row.rel_path);
+    if (!abs) return null;
     try {
-      const buf = await readFile(path.join(UPLOAD_ROOT, row.file_path));
+      const buf = await readFile(abs);
       text = (await extractText(fileName, new Uint8Array(buf))).text;
     } catch {
       return null;

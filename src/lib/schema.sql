@@ -4,6 +4,15 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+-- ── 应用设置 ──────────────────────────────────────────────────
+-- 目前只存一项：用户绑定的资料目录。做成 key/value 而不是单行配置表，
+-- 是为了后面加「园所名称」「默认学年」这类设置时不用改表结构。
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
 -- ── 班级与幼儿 ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS classes (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

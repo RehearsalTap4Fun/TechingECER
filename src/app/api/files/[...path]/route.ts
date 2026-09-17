@@ -3,17 +3,16 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import type { NextRequest } from "next/server";
-import { UPLOAD_ROOT } from "@/lib/ingest";
+import { resolveInLibrary } from "@/lib/library";
 
 export const dynamic = "force-dynamic";
 
 /**
- * 上传文件的取回入口。
+ * 资料目录里的文件取回入口。
  *
- * 为什么不放 public/ 直接静态托管：Next.js 在**构建时**扫描 public/ 生成静态
- * 清单，运行时新写入的文件不在清单里，一律 404。上传是运行时行为，所以必须
- * 走路由处理器按请求读盘。文件因此存在 data/uploads/，和数据库放在一起，
- * 备份只需要拷 data/ 一个目录。
+ * 文件在用户自己的目录里，不在项目内，所以既不能也不该走 public/ 静态托管
+ * （Next.js 的 public/ 是构建时扫描成清单的，运行时出现的文件一律 404）。
+ * 这里按请求读盘，路径经 resolveInLibrary 做目录穿越校验。
  */
 
 /** 浏览器能直接渲染的类型内联打开，其余一律下载 */
@@ -43,11 +42,6 @@ const DOWNLOAD_TYPES: Record<string, string> = {
   ".xls": "application/vnd.ms-excel",
 };
 
-/** 落盘时加了时间戳前缀防重名，给用户的文件名要去掉 */
-function displayName(stored: string): string {
-  return stored.replace(/^\d{10,}-/, "");
-}
-
 /** RFC 5987：中文文件名必须编码，同时给不支持的老浏览器留一个 ASCII 回退 */
 function contentDisposition(kind: "inline" | "attachment", name: string): string {
   const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'");
@@ -60,12 +54,10 @@ export async function GET(
 ) {
   const { path: segments } = await ctx.params;
 
-  // 目录穿越防护：拼接后必须仍在 UPLOAD_ROOT 之内
   const rel = segments.map((s) => decodeURIComponent(s)).join("/");
-  const abs = path.resolve(UPLOAD_ROOT, rel);
-  if (abs !== UPLOAD_ROOT && !abs.startsWith(UPLOAD_ROOT + path.sep)) {
-    return new Response("Forbidden", { status: 403 });
-  }
+  const abs = resolveInLibrary(rel);
+  // null = 未绑定目录，或路径试图跳出资料目录
+  if (!abs) return new Response("Forbidden", { status: 403 });
 
   let info;
   try {
@@ -76,8 +68,8 @@ export async function GET(
   if (!info.isFile()) return new Response("Not Found", { status: 404 });
 
   const ext = path.extname(abs).toLowerCase();
-  const stored = path.basename(abs);
-  const name = displayName(stored);
+  // 文件在用户目录里是原名，直接用
+  const name = path.basename(abs);
 
   // ?download=1 强制下载，用于「即便是 PDF 也想存下来」的场景
   const forceDownload = req.nextUrl.searchParams.get("download") === "1";

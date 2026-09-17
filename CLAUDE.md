@@ -21,8 +21,10 @@ src/lib/schema.sql    建表语句，getDb() 每次连接时幂等执行
 src/lib/db.ts         数据访问层：all() / one() / run() / scalar()，含幂等列迁移
 src/lib/extract.ts    文档取正文：docx/pptx/xlsx（fflate 解压 + XML）、pdf（pdfjs）、纯文本
 src/lib/classify.ts   基于正文的词表分类器：分类 / 领域 / 年龄班 / 标签
-src/lib/ingest.ts     落盘 → 提取 → 分类 → 入库的收档管线（UPLOAD_ROOT = data/uploads）
-src/app/api/files/[...path]/route.ts  上传文件的取回入口
+src/lib/settings.ts   key/value 设置，目前只存绑定的资料目录
+src/lib/library.ts    资料目录扫描与索引同步（原地索引，不复制文件）
+src/lib/files.ts      文件取回 URL，服务端与客户端组件共用
+src/app/api/files/[...path]/route.ts  资料目录文件的取回入口
 src/components/       共享 UI 与各模块的表单组件
 src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
 src/app/research/     topics/（专题）与 sessions/（教研活动）两套路由，
@@ -108,10 +110,24 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 **16. Word 表格会被提取成一行一个单元格。**
 `extract.ts` 对 OOXML 是按段落/行边界补换行的，表格的每个单元格因此各占一行。解析条目时要滤掉「完成时间」「产出组别」这类列（见 `TABLE_NOISE_RE`）——一份汇总计划曾因此解析出 22 条成果，实际只有 11 条。
 
-**17. 上传文件不能放 `public/`。**
-Next.js 在**构建时**扫描 `public/` 生成静态清单，运行时写进去的文件不在清单里，一律 404——纯 ASCII 文件名也一样，不是编码问题。上传目录是 `data/uploads/`，取回走 `/api/files/<相对路径>` 路由处理器按请求读盘。这条容易踩：本地 `next dev` 有时能读到，`next start` 下必然 404。
 
-**18. 取回路由的三件事。**
-- 目录穿越：`path.resolve` 后必须仍在 `UPLOAD_ROOT` 内，否则 403。
-- 文件名：落盘加了时间戳前缀防重名，`Content-Disposition` 要去掉前缀还原原始名，且中文必须走 RFC 5987 的 `filename*=UTF-8''`，同时留 ASCII 回退。
-- 内联还是下载：PDF/文本/图片 `inline`，Office 文档 `attachment`（浏览器渲染不了）。`?download=1` 强制下载。
+**17. 文件系统是唯一真相，应用只索引不复制。**
+用户绑定一个资料目录（`settings` 表的 `library_dir`），文档放在那里，`library.ts` 原地索引。绝不复制、改名或移动用户的文件。`resources.rel_path` 是文件的身份，`file_size` + `file_mtime` 是指纹——只有指纹变了才重新提取正文（PDF 提取是这里唯一昂贵的操作）。
+
+**18. 文件不见了要标记而不是删除。**
+`resources.missing = 1`。人工做过的分类不能因为文件被临时移走就丢掉；文件放回原处扫描时自动恢复。清理由用户显式确认。
+
+**19. `reviewed` 在界面上叫「归档」。**
+`reviewed = 0` 是待归档（停在资源页等人确认分类），`reviewed = 1` 是已归档（出现在各模块的「相关资料」里）。没归档的资料不要散到各模块去——那会让人误以为分类已经定了。
+
+**20. 上传到共享是独立的工作流。**
+资源页是纯目录驱动的，不承担上传。原先的上传组件已移除，不要把两套存储模型混在一起。
+
+**21. `"use client"` 模块导出的普通函数不能被服务端组件调用。**
+`fileHref` 曾放在 `resource-card.tsx`（客户端组件）里导出，服务端的 `related-resources.tsx` 一调用，四个页面直接 500。共用的纯函数放 `src/lib/`。
+
+**22. 冒烟测试必须查 HTTP 状态码。**
+上一条那个 500 之所以没被第一时间发现，是因为测试只 grep 了页面内容、没看状态码——错误页里当然找不到关键词，看起来像"功能没生效"。任何页面验证都先断言 200。
+
+**23. `useActionState` 的表单用另一套渐进增强编码。**
+不是 `$ACTION_ID_*`，而是 `$ACTION_REF_1` / `$ACTION_1:0` / `$ACTION_1:1` / `$ACTION_KEY`。用 curl 测这类表单时要把这几个隐藏域原样带上。

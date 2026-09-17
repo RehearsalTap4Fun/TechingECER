@@ -38,6 +38,10 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ["resources", "reviewed", "INTEGER NOT NULL DEFAULT 0"],
   ["research_sessions", "topic_id", "INTEGER REFERENCES research_topics(id) ON DELETE SET NULL"],
   ["research_sessions", "module_id", "INTEGER REFERENCES research_modules(id) ON DELETE SET NULL"],
+  // 资料目录索引：文件留在用户自己的目录里，这里只记位置和指纹
+  ["resources", "rel_path", "TEXT"],
+  ["resources", "file_mtime", "INTEGER"],
+  ["resources", "missing", "INTEGER NOT NULL DEFAULT 0"],
 ];
 
 /**
@@ -48,6 +52,8 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
  */
 const ADDED_INDEXES: string[] = [
   "CREATE INDEX IF NOT EXISTS idx_research_topic ON research_sessions(topic_id, module_id)",
+  // rel_path 是文件在资料目录中的身份，扫描时按它查重
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_resources_relpath ON resources(rel_path) WHERE rel_path IS NOT NULL",
 ];
 
 function migrate(db: DatabaseSync): void {

@@ -2,6 +2,7 @@ import { all } from "@/lib/db";
 import { FAMILY_NOTE_KINDS } from "@/lib/domain";
 import { Button, Card, EmptyState, Field, PageHeader, Tag } from "@/components/ui";
 import { createFamilyNote, deleteFamilyNote } from "./actions";
+import { RelatedResources } from "@/components/related-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +112,7 @@ export default function FamilyPage() {
           ))}
         </div>
       )}
+      <RelatedResources categories={["家长材料"]} title="相关资料 · 家长材料" />
     </>
   );
 }
