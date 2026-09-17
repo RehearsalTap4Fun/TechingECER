@@ -20,10 +20,45 @@ declare global {
   var __ecerDb: DatabaseSync | undefined;
 }
 
+/**
+ * 补齐已有数据库缺失的列。
+ *
+ * schema.sql 用的是 CREATE TABLE IF NOT EXISTS，对已建好的库不会生效，
+ * 所以新增列要单独 ALTER。这里做成幂等的：对照 PRAGMA table_info 只加缺的那些，
+ * 不需要版本号表——列的有无本身就是状态。
+ */
+const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
+  ["resources", "file_name", "TEXT"],
+  ["resources", "file_size", "INTEGER"],
+  ["resources", "extract_kind", "TEXT"],
+  ["resources", "content_text", "TEXT"],
+  ["resources", "auto_category", "TEXT"],
+  ["resources", "auto_confidence", "REAL"],
+  ["resources", "auto_matched", "TEXT NOT NULL DEFAULT '[]'"],
+  ["resources", "reviewed", "INTEGER NOT NULL DEFAULT 0"],
+];
+
+function migrate(db: DatabaseSync): void {
+  const tables = new Set(
+    (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>)
+      .map((r) => r.name),
+  );
+  for (const [table, column, ddl] of ADDED_COLUMNS) {
+    if (!tables.has(table)) continue;
+    const cols = new Set(
+      (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((r) => r.name),
+    );
+    if (!cols.has(column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+    }
+  }
+}
+
 function open(): DatabaseSync {
   mkdirSync(DB_DIR, { recursive: true });
   const db = new DatabaseSync(DB_PATH);
   db.exec(readFileSync(SCHEMA_PATH, "utf8"));
+  migrate(db);
   return db;
 }
 

@@ -143,6 +143,15 @@ CREATE TABLE IF NOT EXISTS resources (
   file_path   TEXT,                          -- public/uploads 下的相对路径
   description TEXT,
   tags        TEXT NOT NULL DEFAULT '[]',
-  created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  -- ── 上传文件与自动分类 ──
+  file_name   TEXT,                          -- 原始文件名
+  file_size   INTEGER,
+  extract_kind TEXT,                         -- docx | pptx | xlsx | pdf | text | unsupported
+  content_text TEXT,                         -- 提取的正文，供全文检索
+  auto_category TEXT,                        -- 系统判定的分类（category 为最终采用值，可能被人工改判）
+  auto_confidence REAL,                      -- 0~1
+  auto_matched TEXT NOT NULL DEFAULT '[]',   -- 判定依据的命中关键词 JSON
+  reviewed    INTEGER NOT NULL DEFAULT 0     -- 1 = 已被人工确认或改判
 );
 CREATE INDEX IF NOT EXISTS idx_resources_category ON resources(category);

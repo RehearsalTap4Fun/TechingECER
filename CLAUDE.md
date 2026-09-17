@@ -18,10 +18,16 @@ npm run db:reset   # 删库重建，会清空所有数据
 src/lib/domain.ts     《3—6岁儿童学习与发展指南》领域模型（5 领域 / 11 子领域 / 30 目标）
 src/lib/ecers.ts      ECERS-3 条目框架（6 子量表 / 35 条目）+ 计分函数
 src/lib/schema.sql    建表语句，getDb() 每次连接时幂等执行
-src/lib/db.ts         数据访问层：all() / one() / run() / scalar()
+src/lib/db.ts         数据访问层：all() / one() / run() / scalar()，含幂等列迁移
+src/lib/extract.ts    文档取正文：docx/pptx/xlsx（fflate 解压 + XML）、pdf（pdfjs）、纯文本
+src/lib/classify.ts   基于正文的词表分类器：分类 / 领域 / 年龄班 / 标签
+src/lib/ingest.ts     落盘 → 提取 → 分类 → 入库的收档管线
 src/components/       共享 UI 与各模块的表单组件
 src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
 scripts/init-db.mts   初始化脚本
+scripts/import-docs.mts   批量导入目录（--dry 试运行）
+scripts/classify-file.mts 单文件分类试跑，调词表时用
+scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 ```
 
 ## 写代码时要注意的几件事
@@ -50,3 +56,20 @@ scripts/init-db.mts   初始化脚本
 - 各 `actions.ts` 里都有一个本地 `text(fd, key)` 助手：取值、trim、空串转 `null`。
 - 多选项用同名多个 `<input name="goal_ids">`，用 `fd.getAll()` + `toJsonArray()` 存成 JSON。
 - 客户端表单里如果有"切换标签页"的交互，**不要卸载未激活的那部分**（用 `hidden` 类隐藏），否则已勾选的复选框会连同 DOM 一起消失、提交时丢数据。`observation-form.tsx` 里就是这么处理的。
+
+## 文档分类相关
+
+**7. 分类是建议，不是结论。**
+`reviewed=0` 表示尚未人工确认，界面会展示判定依据（命中词 + 置信度）并提供确认/改判。新增分类逻辑时保持这个约定，不要让系统静默归档。
+
+**8. 词表改在 `classify.ts`，权重含义要一致。**
+`[关键词, 权重]`，权重 4~5 留给该类**独有**的强信号词（如「环创」「致家长」），1~2 给通用词（如「文件」「环节」）。分类名本身会自动以权重 5 注入，不用手写进词表。
+
+**9. 新增文件格式要同时改三处。**
+`extract.ts` 的 `kindOf()`（扩展名映射）、对应的 `fromXxx()` 解析函数、以及 `upload-box.tsx` 的 `ACCEPT` 常量。
+
+**10. 解析失败不能丢文件。**
+`extractText()` 出错时返回 `{ text: "", error }` 而非抛异常——文件仍然入库，只是没有正文和分类依据，由教师手工归类。批量导入时一个文件失败不应中断整批。
+
+**11. 客户端组件里不要把 server action 包进箭头函数。**
+`<form action={(fd) => {...action(fd)}}>` 会让 Next 无法把 action 引用写进 HTML，丢失渐进增强（禁用 JS 就不能提交）。直接 `action={serverAction}`，需要在提交后做事就用 `useFormStatus` 观察 pending 的变化（见 `upload-box.tsx`）。
