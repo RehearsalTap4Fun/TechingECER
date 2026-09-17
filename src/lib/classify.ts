@@ -34,8 +34,11 @@ type Lexicon = Record<string, Array<[string, number]>>;
 const CATEGORY_LEXICON: Lexicon = {
   课程方案: [
     ["活动目标", 3], ["活动准备", 3], ["活动过程", 3], ["活动延伸", 3], ["活动反思", 3],
-    ["教案", 3], ["集体教学", 2], ["教学活动", 2], ["导入", 1], ["环节", 1],
-    ["主题活动", 2], ["课程方案", 4], ["月计划", 2], ["周计划", 2], ["学期计划", 2],
+    ["教案", 3], ["集体教学", 3], ["教学活动", 2], ["导入", 1], ["环节", 1],
+    ["主题活动", 2], ["课程方案", 4],
+    // 计划类文档的类型标记与固定栏目名——它们共同出现时几乎必是一份课程/保教计划
+    ["月计划", 4], ["周计划", 4], ["学期计划", 4], ["日计划", 4],
+    ["生活活动", 3], ["区域游戏", 3], ["户外活动", 2], ["一日活动", 3], ["过渡环节", 2],
   ],
   绘本书单: [
     ["绘本", 4], ["图画书", 4], ["书单", 4], ["阅读推荐", 3], ["故事书", 2],
@@ -60,8 +63,11 @@ const CATEGORY_LEXICON: Lexicon = {
     ["核心经验", 4], ["理论导读", 4], ["专业成长", 3], ["观摩", 2],
   ],
   家长材料: [
-    ["家长", 4], ["家园共育", 5], ["家长会", 5], ["致家长", 5], ["家访", 4],
-    ["入园须知", 4], ["温馨提示", 3], ["告家长书", 5], ["亲子", 2], ["家委会", 4],
+    // 强信号是"这份文件是写给家长的"；「家长」「家园共育」只是"提到了家长"，
+    // 任何一份周计划都会有家园共育那一栏，权重必须压低，否则整份计划会被判成家长材料
+    ["致家长", 5], ["告家长书", 5], ["家长会", 5], ["入园须知", 5], ["家委会", 4],
+    ["家长开放日", 5], ["家访", 4], ["温馨提示", 3], ["亲子", 2],
+    ["家长", 1], ["家园共育", 2],
   ],
 };
 
@@ -69,7 +75,10 @@ const CATEGORY_LEXICON: Lexicon = {
 const DOMAIN_LEXICON: Record<DomainKey, Array<[string, number]>> = {
   health: [
     ["健康", 3], ["体能", 3], ["动作发展", 4], ["生活自理", 4], ["卫生习惯", 4],
-    ["安全", 3], ["自我保护", 4], ["户外活动", 2], ["体育游戏", 4], ["营养", 3], ["午睡", 2],
+    ["安全", 3], ["自我保护", 4], ["户外活动", 2], ["体育游戏", 4], ["午睡", 2],
+    // 食育：生活习惯与生活能力的重要内容，园所常作为专项课程开展
+    ["食育", 5], ["营养", 4], ["膳食", 4], ["饮食", 4], ["食谱", 4],
+    ["烹饪", 4], ["餐点", 3], ["进餐", 4], ["食养", 4], ["劳动教育", 3],
   ],
   language: [
     ["语言", 3], ["前阅读", 5], ["阅读", 3], ["图画书", 4], ["绘本", 4],
@@ -81,9 +90,13 @@ const DOMAIN_LEXICON: Record<DomainKey, Array<[string, number]>> = {
     ["自信", 2], ["归属感", 4], ["社会适应", 5], ["情绪", 2], ["分享", 2], ["角色游戏", 3],
   ],
   science: [
-    ["科学", 3], ["探究", 4], ["数学", 4], ["数学认知", 5], ["点数", 4],
-    ["测量", 3], ["分类", 2], ["排序", 3], ["图形", 3], ["空间", 2],
-    ["自然", 2], ["观察记录", 2], ["实验", 3], ["种植", 2],
+    // 注意：「探究」「分类」「空间」「观察记录」这类词在教研计划里属于方法论
+    // 词汇（"分类框架"、"空间分布"、"探究支架"），不能当作科学领域的信号，
+    // 一份食育课题计划曾因此被误判为科学领域。这里一律换成更具体的复合词。
+    ["科学", 3], ["科学探究", 5], ["科学区", 4],
+    ["数学", 4], ["数学认知", 5], ["点数", 4], ["数量关系", 4],
+    ["测量", 3], ["分类排序", 4], ["图形", 3], ["空间方位", 4], ["形状", 2],
+    ["亲近自然", 4], ["自然角", 4], ["科学实验", 4], ["种植", 2], ["动植物", 3],
   ],
   art: [
     ["艺术", 3], ["美术", 4], ["绘画", 4], ["手工", 4], ["音乐", 3],
@@ -98,6 +111,42 @@ const AGE_LEXICON: Record<AgeGroupKey, string[]> = {
   middle: ["中班", "4-5岁", "4—5岁", "4~5岁"],
   senior: ["大班", "5-6岁", "5—6岁", "5~6岁"],
 };
+
+/**
+ * 覆盖全年龄段的表述。
+ *
+ * 园所文件常写成「大、中、小三个年龄段」——里面并没有"大班""中班"字样，
+ * 只有"小班"能被匹配到，结果整份全园文件被判成小班且置信度很高。
+ * 命中这些模式时直接放弃年龄判定，比给出一个自信的错误答案好。
+ */
+/**
+ * 天然横跨五大领域的文档类型。
+ *
+ * 一份周计划会同时排语言、数学、美术、健康、音乐活动，把它归到任何单一
+ * 领域都是误导——这类文档的领域应当留空，让教师自己决定要不要标。
+ */
+const DOMAIN_SPANNING_PATTERNS = [
+  "周计划",
+  "月计划",
+  "日计划",
+  "一日活动",
+  "保教计划",
+  "五大领域",
+  "各领域",
+];
+
+const AGE_ALL_PATTERNS = [
+  "各年龄段",
+  "三个年龄段",
+  "全年龄段",
+  "大、中、小",
+  "小、中、大",
+  "大中小班",
+  "小中大班",
+  "各年级组",
+  "全园教师",
+  "分年段",
+];
 
 /** 统计关键词出现次数。中文没有词边界，直接子串计数即可 */
 function countOccurrences(haystack: string, needle: string): number {
@@ -168,19 +217,23 @@ export function classify(fileName: string, rawText: string): Classification {
   const category =
     pick(catEntries, 8) ?? { value: "其他", confidence: 0.1, matched: [] as string[] };
 
+  const spansDomains = DOMAIN_SPANNING_PATTERNS.some(
+    (pat) => text.includes(pat) || fileName.includes(pat),
+  );
   const domainEntries = DOMAINS.map((d) => {
     // 领域名（健康/语言/社会/科学/艺术）已包含在各自词表首位，此处不再重复注入
     const { total, matched } = score(text, head, fileName, DOMAIN_LEXICON[d.key]);
     return { key: d.key, total, matched };
   });
-  const domain = pick(domainEntries, 10);
+  const domain = spansDomains ? null : pick(domainEntries, 10);
 
+  const coversAllAges = AGE_ALL_PATTERNS.some((pat) => text.includes(pat) || fileName.includes(pat));
   const ageEntries = AGE_GROUPS.map((g) => {
     const terms = AGE_LEXICON[g.key].map((t) => [t, 4] as [string, number]);
     const { total, matched } = score(text, head, fileName, terms);
     return { key: g.key, total, matched };
   });
-  const ageGroup = pick(ageEntries, 6);
+  const ageGroup = coversAllAges ? null : pick(ageEntries, 6);
 
   // 标签取所有命中的强信号词，按在正文中出现的次数排序
   const pool = new Set<string>([...category.matched, ...(domain?.matched ?? [])]);
