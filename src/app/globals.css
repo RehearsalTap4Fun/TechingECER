@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #f0f7f4;
+  --color-brand-100: #dcece4;
+  --color-brand-200: #bbd9cb;
+  --color-brand-300: #8fbfa9;
+  --color-brand-400: #5f9f83;
+  --color-brand-500: #418368;
+  --color-brand-600: #316953;
+  --color-brand-700: #285444;
+  --color-brand-800: #224338;
+  --color-brand-900: #1d3830;
+
+  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+:root {
+  --bg: #f7f8f7;
+  --surface: #ffffff;
+  --border: #e4e7e5;
+  --text: #1c2523;
+  --muted: #6b7a75;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121614;
+    --surface: #1a201d;
+    --border: #2c3532;
+    --text: #e8eeeb;
+    --muted: #98a6a1;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 表单控件统一风格，避免每个 input 重复一长串 class */
+.field {
+  @apply w-full rounded-lg border px-3 py-2 text-sm outline-none transition;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.field:focus {
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-400) 20%, transparent);
+}
+.label {
+  @apply mb-1.5 block text-sm font-medium;
+}
+.hint {
+  @apply mt-1 text-xs;
+  color: var(--muted);
+}
+
+/* 打印教案 / 教研纪要时隐藏导航 */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

@@ -1,0 +1,32 @@
+# 依赖
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js 构建产物
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# 本地数据库（含幼儿个人信息，禁止入库）
+/data/*.db
+/data/*.db-journal
+/data/*.db-wal
+/data/*.db-shm
+
+# 上传的资料原件
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# 环境变量
+.env
+.env.local
+.env*.local
+
+# 系统 / 编辑器
+.DS_Store
+.vscode/
+.idea/
+*.log
+npm-debug.log*

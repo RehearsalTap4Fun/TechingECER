@@ -1,0 +1,52 @@
+# TeachingECER · 学前教育教研平台
+
+面向幼儿园的本地教研工作台。Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + Node 内置 `node:sqlite`。
+
+## 常用命令
+
+```bash
+npm run dev        # 开发服务器，端口 3100
+npm run build      # 生产构建（含 TypeScript 检查）
+npm run typecheck  # 只跑类型检查
+npm run db:init    # 建表 + 示例数据（已有数据则跳过）
+npm run db:reset   # 删库重建，会清空所有数据
+```
+
+## 目录结构
+
+```
+src/lib/domain.ts     《3—6岁儿童学习与发展指南》领域模型（5 领域 / 11 子领域 / 30 目标）
+src/lib/ecers.ts      ECERS-3 条目框架（6 子量表 / 35 条目）+ 计分函数
+src/lib/schema.sql    建表语句，getDb() 每次连接时幂等执行
+src/lib/db.ts         数据访问层：all() / one() / run() / scalar()
+src/components/       共享 UI 与各模块的表单组件
+src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
+scripts/init-db.mts   初始化脚本
+```
+
+## 写代码时要注意的几件事
+
+**1. 领域常量放代码，不放数据库。**
+《指南》的目标和 ECERS 的条目是国家/量表规定的固定框架，改动要走代码评审。业务数据里只存稳定 ID（如 `science-1-2`、条目号 `27`），不存中文文本——措辞调整时改一处即可。
+
+**2. `node:sqlite` 返回 null 原型对象。**
+直接把查询结果传给客户端组件会报 `Only plain objects... can be passed to Client Components`。`db.ts` 的 `all()` / `one()` 已统一转成普通对象，**新增查询请走这两个函数**，不要直接调 `getDb().prepare().all()`。
+
+**3. 页面默认要 `export const dynamic = "force-dynamic"`。**
+所有读数据库的页面都必须加，否则会被静态化，数据永远停在构建那一刻。
+
+**4. ECERS 总均分不是子量表均分的平均。**
+是所有已评条目的算术平均，NA 条目不计入分母。`totalAverage()` / `subscaleAverage()` 已实现，不要自己再算一遍。
+
+**5. 幼儿个人信息不入代码仓库。**
+`data/*.db` 已在 `.gitignore` 中。任何示例数据、测试数据都用"示例·小满"这类虚构姓名，不要写真实幼儿信息。
+
+**6. ECERS-3 手册原文不入库。**
+评分指标（1/3/5/7 分下的 indicator）受版权保护。系统只存条目编号和名称。
+
+## 表单与 Server Actions 约定
+
+- 表单用原生 `<form action={serverAction}>`，Server Action 从 `FormData` 取值。
+- 各 `actions.ts` 里都有一个本地 `text(fd, key)` 助手：取值、trim、空串转 `null`。
+- 多选项用同名多个 `<input name="goal_ids">`，用 `fd.getAll()` + `toJsonArray()` 存成 JSON。
+- 客户端表单里如果有"切换标签页"的交互，**不要卸载未激活的那部分**（用 `hidden` 类隐藏），否则已勾选的复选框会连同 DOM 一起消失、提交时丢数据。`observation-form.tsx` 里就是这么处理的。
