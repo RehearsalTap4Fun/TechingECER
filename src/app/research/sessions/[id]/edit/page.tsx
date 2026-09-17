@@ -14,7 +14,11 @@ export default async function EditResearchPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <PageHeader title="编辑教研纪要" description={row.title} />
+      <PageHeader
+        back={{ href: `/research/sessions/${id}`, label: row.title ?? "返回教研活动" }}
+        title="编辑教研纪要"
+        description={row.title}
+      />
       <ResearchForm
         action={updateSession}
         initial={row}

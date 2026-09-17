@@ -110,7 +110,7 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/research", label: "教研管理" }}
         title={topic.title}
         description={topic.subtitle ?? undefined}
         action={

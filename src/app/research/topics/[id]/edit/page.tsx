@@ -38,6 +38,7 @@ export default async function EditTopicPage({ params }: { params: Promise<{ id: 
   return (
     <>
       <PageHeader
+        back={{ href: `/research/topics/${tid}`, label: topic.title ?? "返回专题" }}
         title="编辑教研专题"
         description="改动模块标题会新建模块，已挂靠的教研活动按标题匹配保留归属；删掉某行则该模块下的活动变为「未指定模块」。"
       />

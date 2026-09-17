@@ -15,7 +15,7 @@ export default async function NewTopicPage({
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/research", label: "教研管理" }}
         title={imported ? "导入教研专题" : "新建教研专题"}
         description={
           imported

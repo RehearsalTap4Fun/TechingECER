@@ -5,7 +5,7 @@ import { createLesson } from "../actions";
 export default function NewLessonPage() {
   return (
     <>
-      <PageHeader title="新建教案" description="填完「活动过程」就能用；反思可以等实施后再补。" />
+      <PageHeader back={{ href: "/lessons", label: "教案与活动" }} title="新建教案" description="填完「活动过程」就能用；反思可以等实施后再补。" />
       <LessonForm action={createLesson} />
     </>
   );

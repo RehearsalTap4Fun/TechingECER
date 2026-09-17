@@ -14,7 +14,7 @@ export default function NewObservationPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/observations", label: "观察记录" }}
         title="新建观察记录"
         description="趁记忆新鲜写下来。客观记录部分只写事实，判断留给「分析解读」。"
       />

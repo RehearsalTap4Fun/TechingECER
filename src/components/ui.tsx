@@ -18,18 +18,36 @@ export function Card({
   );
 }
 
+export interface BackTarget {
+  href: string;
+  label: string;
+}
+
 export function PageHeader({
   title,
   description,
   action,
+  back,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  /** 返回上一层的入口。详情页和表单页都应该给，否则进去了只能靠浏览器后退 */
+  back?: BackTarget;
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
+        {back && (
+          <Link
+            href={back.href}
+            className="no-print mb-2 inline-flex items-center gap-1 text-sm transition hover:text-brand-600"
+            style={{ color: "var(--muted)" }}
+          >
+            <span aria-hidden>←</span>
+            {back.label}
+          </Link>
+        )}
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description && (
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>

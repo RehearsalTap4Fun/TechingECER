@@ -42,7 +42,7 @@ export default function ImportPlanPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/research", label: "教研管理" }}
         title="从计划文档建专题"
         description="解析资源库里的教研计划，抽出背景、四类目标、主题模块与预期成果。解析结果只是草稿，确认后才入库。"
         action={<LinkButton href="/research/topics/new" variant="ghost">手工新建</LinkButton>}

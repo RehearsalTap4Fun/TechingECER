@@ -161,3 +161,19 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 
 **31. 备份 SQLite 必须带上 -wal 和 -shm。**
 数据库是 WAL 模式，最近的写入可能还只在 `-wal` 里。`cp` 单个 `.db` 文件会丢数据——本项目开发期间真的因此丢过绑定设置和索引。要么停服务再拷，要么整个 `data/` 目录一起拷。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
+
+**32. 详情页和表单页必须给 `PageHeader` 传 `back`。**
+新增任何二级页面都要给返回入口，否则进去了只能靠浏览器后退或点导航栏——这被用户当成 bug 报过。返回目标要带上下文：编辑页回到它所属的那条记录（显示记录名），教研活动有专题就回专题、没有才回列表。顶层列表页不给 `back`。
+
+**33. 别在用户的 dev server 运行时 `rm -rf .next`。**
+Turbopack 的运行时 chunk 被删掉后 dev server 无法自愈，之后每个页面都 500，日志里是 `Cannot find module '../chunks/ssr/[turbopack]_runtime.js'`。要清缓存先停进程。开工前先 `ps` 看一眼有没有别人起的 dev/start 进程。

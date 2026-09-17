@@ -10,7 +10,7 @@ export default function NewAssessmentPage() {
 
   return (
     <>
-      <PageHeader title="新建 ECERS 评估" description="建立后进入评分表，逐条录入分数和观察证据。" />
+      <PageHeader back={{ href: "/assessments", label: "ECERS 评估" }} title="新建 ECERS 评估" description="建立后进入评分表，逐条录入分数和观察证据。" />
       <form action={createAssessment}>
         <Card className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">

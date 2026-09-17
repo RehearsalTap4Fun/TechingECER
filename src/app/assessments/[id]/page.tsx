@@ -48,7 +48,7 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/assessments", label: "ECERS 评估" }}
         title={`${a.class_name ?? "未指定班级"} · ECERS-3 评估`}
         description={`${a.assessed_on} · 评估者 ${a.assessor}`}
         action={

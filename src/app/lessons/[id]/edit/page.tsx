@@ -13,7 +13,11 @@ export default async function EditLessonPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <PageHeader title="编辑教案" description={String(row.title)} />
+      <PageHeader
+        back={{ href: `/lessons/${id}`, label: String(row.title) }}
+        title="编辑教案"
+        description={String(row.title)}
+      />
       <LessonForm
         action={updateLesson}
         submitLabel="保存修改"

@@ -15,7 +15,7 @@ export default async function NewResearchPage({
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/research", label: "教研管理" }}
         title="新建教研活动"
         description="会前先填归属、主题和流程，会后补研讨记录、结论与行动项。"
       />

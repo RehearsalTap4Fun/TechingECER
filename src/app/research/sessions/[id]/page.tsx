@@ -83,6 +83,11 @@ export default async function ResearchDetailPage({ params }: { params: Promise<{
   return (
     <>
       <PageHeader
+        back={
+          session.topic_id
+            ? { href: `/research/topics/${session.topic_id}`, label: session.topic_title ?? "返回专题" }
+            : { href: "/research", label: "教研管理" }
+        }
         title={session.title}
         description={`${TYPE_LABEL.get(session.type_key as never) ?? session.type_key} · ${session.held_on}${session.host ? ` · 主持 ${session.host}` : ""}`}
         action={
@@ -102,25 +107,22 @@ export default async function ResearchDetailPage({ params }: { params: Promise<{
         }
       />
 
-      {session.topic_id && (
+      {session.topic_id && (session.module_title || topicGoals.length > 0) && (
         <Card className="mb-6">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span style={{ color: "var(--muted)" }}>所属专题</span>
-            <Link href={`/research/topics/${session.topic_id}`} className="font-medium text-brand-600 underline underline-offset-2">
-              {session.topic_title}
-            </Link>
-            {session.module_title && (
-              <>
-                <span style={{ color: "var(--muted)" }}>›</span>
-                <span>
-                  主题{CN_NUM[session.module_seq ?? 0] ?? (session.module_seq ?? 0) + 1}：{session.module_title}
-                </span>
-              </>
-            )}
-          </div>
+          {session.module_title && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span style={{ color: "var(--muted)" }}>主题模块</span>
+              <span className="font-medium">
+                主题{CN_NUM[session.module_seq ?? 0] ?? (session.module_seq ?? 0) + 1}：{session.module_title}
+              </span>
+            </div>
+          )}
 
           {topicGoals.length > 0 && (
-            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+            <div
+              className={session.module_title ? "mt-3 border-t pt-3" : ""}
+              style={session.module_title ? { borderColor: "var(--border)" } : undefined}
+            >
               <p className="mb-1.5 text-xs font-medium" style={{ color: "var(--muted)" }}>
                 本专题目标
               </p>

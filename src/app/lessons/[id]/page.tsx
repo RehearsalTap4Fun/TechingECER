@@ -49,7 +49,7 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <PageHeader
+      <PageHeader back={{ href: "/lessons", label: "教案与活动" }}
         title={lesson.title}
         description={`${lesson.author ?? "未署名"} · 更新于 ${lesson.updated_at.slice(0, 16)}`}
         action={
