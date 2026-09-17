@@ -4,6 +4,7 @@ import { getDb, one, run } from "@/lib/db";
 import { extractText, kindOf } from "@/lib/extract";
 import { classify } from "@/lib/classify";
 import { getLibraryDir } from "@/lib/settings";
+import { EXPORT_DIR_NAME } from "@/lib/export-md";
 
 /**
  * 资料目录索引。
@@ -27,6 +28,8 @@ const DOCUMENT_EXTS = new Set([
 const SKIP_DIRS = new Set([
   "node_modules", ".git", ".svn", "__MACOSX", ".Trash", "$RECYCLE.BIN",
   "System Volume Information", "$Recycle.Bin", ".Spotlight-V100", ".fseventsd",
+  // 应用自己写出的导出文件不再索引回来，否则会自己喂自己
+  EXPORT_DIR_NAME,
 ]);
 
 /** Windows 的隐藏文件不靠点号前缀，按名字剔除常见系统文件 */

@@ -26,6 +26,7 @@ src/lib/library.ts    资料目录扫描与索引同步（原地索引，不复�
 src/lib/files.ts      文件取回 URL，服务端与客户端组件共用
 src/lib/reveal.ts     在本机文件管理器中定位/打开文件，含本机判定
 src/lib/locate-dir.ts 按「文件夹名 + 文件指纹」在本机反查目录绝对路径
+src/lib/export-md.ts  应用内容单向导出 Markdown 到资料目录的「应用导出」子目录
 src/app/api/files/[...path]/route.ts  资料目录文件的取回入口
 src/components/       共享 UI 与各模块的表单组件
 src/app/<模块>/        page.tsx（列表）+ actions.ts（Server Actions）+ 子路由
@@ -148,3 +149,15 @@ scripts/alias-loader.mjs  让裸 Node 脚本认识 `@/` 别名
 - 目录穿越校验在 Windows 上要先统一大小写：盘符与路径大小写不敏感，`C:\Users` 与 `c:\users` 否则会被判成不同目录。
 - `explorer /select` 的路径必须和 `/select,` 拼成同一个参数，而且要 `windowsVerbatimArguments: true`——Node 默认会给含逗号的参数加引号，explorer 不认，加了就变成打开「文档」目录。
 - npm 脚本别用 `rm`／`&&` 之外的 shell 特性；`db:reset` 已改成 `node -e` 调 `fs.rmSync`。
+
+**28. 导出是单向的，且导出目录必须排除在扫描之外。**
+应用是唯一写入方，导出文件仅供查看分发。`EXPORT_DIR_NAME` 已加进 `library.ts` 的 `SKIP_DIRS`——否则应用写出的 .md 会被自己索引成待归档资料，自己喂自己。
+
+**29. 导出文件名带 id 前缀（`0007-标题.md`）。**
+改标题时靠前缀找到并删掉旧文件，避免目录里堆积同一条目的历史版本。删除记录时同样按前缀清理。
+
+**30. 导出失败绝不能让数据保存失败。**
+`exportEntry` 内部捕获所有异常只记日志：数据在数据库里，文件只是副本。资料目录可能在 U 盘或网络盘上，不能因为它掉线就让教师存不了教案。
+
+**31. 备份 SQLite 必须带上 -wal 和 -shm。**
+数据库是 WAL 模式，最近的写入可能还只在 `-wal` 里。`cp` 单个 `.db` 文件会丢数据——本项目开发期间真的因此丢过绑定设置和索引。要么停服务再拷，要么整个 `data/` 目录一起拷。

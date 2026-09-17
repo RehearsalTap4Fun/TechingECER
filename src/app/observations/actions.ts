@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { exportEntry, removeExport } from "@/lib/export-md";
 import { redirect } from "next/navigation";
 import { getDb, run, toJsonArray } from "@/lib/db";
 
@@ -14,7 +15,7 @@ export async function createObservation(fd: FormData) {
   const record = text(fd, "record");
   if (!record) throw new Error("观察记录正文不能为空");
 
-  run(
+  const id = run(
     `INSERT INTO observations
        (child_id, observer, observed_at, scene, method_key, record, analysis, support, goal_ids)
      VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -29,6 +30,7 @@ export async function createObservation(fd: FormData) {
     toJsonArray(fd.getAll("goal_ids")),
   );
 
+  await exportEntry("observation", id);
   revalidatePath("/observations");
   revalidatePath("/");
   redirect("/observations");
@@ -38,6 +40,7 @@ export async function deleteObservation(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
   getDb().prepare("DELETE FROM observations WHERE id=?").run(id);
+  await removeExport("observation", id);
   revalidatePath("/observations");
   revalidatePath("/");
 }

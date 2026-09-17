@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { exportEntry, removeExport } from "@/lib/export-md";
 import { getDb, run } from "@/lib/db";
 
 function text(fd: FormData, key: string): string | null {
@@ -13,7 +14,7 @@ export async function createFamilyNote(fd: FormData) {
   const title = text(fd, "title");
   if (!title) throw new Error("标题不能为空");
 
-  run(
+  const id = run(
     "INSERT INTO family_notes (child_id, kind_key, noted_on, title, content, author) VALUES (?,?,?,?,?,?)",
     Number(fd.get("child_id")) || null,
     String(fd.get("kind_key")),
@@ -23,6 +24,7 @@ export async function createFamilyNote(fd: FormData) {
     text(fd, "author"),
   );
 
+  await exportEntry("family", id);
   revalidatePath("/family");
 }
 
@@ -30,5 +32,6 @@ export async function deleteFamilyNote(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
   getDb().prepare("DELETE FROM family_notes WHERE id=?").run(id);
+  await removeExport("family", id);
   revalidatePath("/family");
 }

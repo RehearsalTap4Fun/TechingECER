@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, run } from "@/lib/db";
 import { GOAL_KINDS, OUTCOME_KINDS } from "@/lib/domain";
+import { exportEntry, removeExport } from "@/lib/export-md";
 
 function text(fd: FormData, key: string): string | null {
   const v = fd.get(key);
@@ -118,6 +119,7 @@ export async function createTopic(fd: FormData) {
     throw e;
   }
 
+  await exportEntry("topic", id);
   revalidatePath("/research");
   redirect(`/research/topics/${id}`);
 }
@@ -158,6 +160,7 @@ export async function updateTopic(fd: FormData) {
     throw e;
   }
 
+  await exportEntry("topic", id);
   revalidatePath(`/research/topics/${id}`);
   revalidatePath("/research");
   redirect(`/research/topics/${id}`);
@@ -169,6 +172,7 @@ export async function deleteTopic(fd: FormData) {
   // 目标/成果/模块随专题 CASCADE 删除；教研活动是 SET NULL，
   // 只会变成「未归属专题」而不会丢失
   getDb().prepare("DELETE FROM research_topics WHERE id=?").run(id);
+  await removeExport("topic", id);
   revalidatePath("/research");
   redirect("/research");
 }
@@ -179,7 +183,10 @@ export async function toggleOutcome(fd: FormData) {
   const topicId = Number(fd.get("topic_id"));
   if (!id) return;
   getDb().prepare("UPDATE research_outcomes SET done = 1 - done WHERE id=?").run(id);
-  if (topicId) revalidatePath(`/research/topics/${topicId}`);
+  if (topicId) {
+    await exportEntry("topic", topicId);
+    revalidatePath(`/research/topics/${topicId}`);
+  }
 }
 
 /** 补充模块的说明与计划月份（新建专题时只录了标题） */
@@ -192,5 +199,8 @@ export async function updateModule(fd: FormData) {
     .prepare("UPDATE research_modules SET summary=?, methods=?, plan_month=? WHERE id=?")
     .run(text(fd, "summary"), text(fd, "methods"), text(fd, "plan_month"), id);
 
-  if (topicId) revalidatePath(`/research/topics/${topicId}`);
+  if (topicId) {
+    await exportEntry("topic", topicId);
+    revalidatePath(`/research/topics/${topicId}`);
+  }
 }

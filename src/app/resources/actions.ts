@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { checkDir, resolveInLibrary, syncLibrary } from "@/lib/library";
 import { isLocalRequest, revealPath, type RevealMode } from "@/lib/reveal";
 import { locateDirectory, type DirSample, type LocateMatch } from "@/lib/locate-dir";
+import { exportAll } from "@/lib/export-md";
 import { LIBRARY_DIR, clearSetting, setSetting } from "@/lib/settings";
 import { one } from "@/lib/db";
 
@@ -27,10 +28,14 @@ export async function bindLibrary(_prev: BindState, fd: FormData): Promise<BindS
 
   setSetting(LIBRARY_DIR, dir.trim());
   const r = await syncLibrary({ force: true });
+  // 绑定后把应用里已有的内容导一份过去，新目录里不至于只有别人的文档
+  const e = await exportAll();
 
   revalidatePath("/resources");
   revalidatePath("/");
-  return { ok: `已绑定，索引到 ${r.added} 份文档` };
+  return {
+    ok: `已绑定，索引到 ${r.added} 份文档${e.total > 0 ? `，并导出了 ${e.total} 条应用内记录` : ""}`,
+  };
 }
 
 export async function unbindLibrary() {
@@ -170,4 +175,10 @@ export async function locateDroppedDir(
     };
   }
   return { name, matches: r.matches };
+}
+
+/** 把应用里的全部内容重新导出一遍到资料目录，用于修复或补齐 */
+export async function exportAllToLibrary() {
+  await exportAll();
+  revalidatePath("/resources");
 }

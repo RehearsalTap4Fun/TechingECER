@@ -10,6 +10,7 @@ import { ResourceCard, type ResourceView } from "@/components/resource-card";
 import {
   archiveResource,
   bindLibrary,
+  exportAllToLibrary,
   locateDroppedDir,
   revealResource,
   purgeMissing,
@@ -156,9 +157,14 @@ export default async function ResourcesPage({
         title="资源库"
         description="索引自你绑定的资料目录。待归档的文档在这里等待确认分类，归档后会出现在对应模块的「相关资料」中。"
         action={
-          <form action={rescanLibrary} className="no-print">
-            <Button variant="ghost">重新扫描</Button>
-          </form>
+          <div className="no-print flex gap-2">
+            <form action={rescanLibrary}>
+              <Button variant="ghost">重新扫描</Button>
+            </form>
+            <form action={exportAllToLibrary}>
+              <Button variant="ghost">重新导出应用内容</Button>
+            </form>
+          </div>
         }
       />
 
@@ -169,6 +175,9 @@ export default async function ResourcesPage({
               资料目录
             </p>
             <p className="truncate font-mono text-xs">{dir}</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+              应用里创建的教案、教研、观察记录等会同时导出到该目录的「应用导出」子目录（单向，不再索引回来）
+            </p>
           </div>
           <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted)" }}>
             {sync && (sync.added > 0 || sync.updated > 0 || sync.restored > 0) && (

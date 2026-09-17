@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, run } from "@/lib/db";
 import { ECERS_ITEMS } from "@/lib/ecers";
+import { exportEntry, removeExport } from "@/lib/export-md";
 
 function text(fd: FormData, key: string): string | null {
   const v = fd.get(key);
@@ -24,6 +25,7 @@ export async function createAssessment(fd: FormData) {
     text(fd, "note"),
   );
 
+  await exportEntry("assessment", id);
   revalidatePath("/assessments");
   revalidatePath("/");
   redirect(`/assessments/${id}`);
@@ -66,6 +68,7 @@ export async function saveScores(fd: FormData) {
     throw e;
   }
 
+  await exportEntry("assessment", id);
   revalidatePath(`/assessments/${id}`);
   revalidatePath("/assessments");
   redirect(`/assessments/${id}`);
@@ -75,6 +78,7 @@ export async function deleteAssessment(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
   getDb().prepare("DELETE FROM ecers_assessments WHERE id=?").run(id);
+  await removeExport("assessment", id);
   revalidatePath("/assessments");
   redirect("/assessments");
 }

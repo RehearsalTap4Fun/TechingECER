@@ -15,8 +15,10 @@ next-env.d.ts
 /data/*.db-wal
 /data/*.db-shm
 
-# 上传的资料原件（与数据库同在 data/，备份拷 data/ 即可）
-/data/uploads/
+# 绑定的资料目录：园所真实文档与幼儿个人信息，禁止入库
+/source/
+/资料/
+/library/
 
 # 环境变量
 .env

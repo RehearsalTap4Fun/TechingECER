@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, run } from "@/lib/db";
+import { exportEntry, removeExport } from "@/lib/export-md";
 
 function text(fd: FormData, key: string): string | null {
   const v = fd.get(key);
@@ -33,6 +34,7 @@ export async function createSession(fd: FormData) {
     text(fd, "action_items"),
   );
 
+  await exportEntry("session", id);
   revalidatePath("/research");
   revalidatePath("/");
   redirect(`/research/sessions/${id}`);
@@ -65,6 +67,7 @@ export async function updateSession(fd: FormData) {
       id,
     );
 
+  await exportEntry("session", id);
   revalidatePath(`/research/sessions/${id}`);
   revalidatePath("/research");
   redirect(`/research/sessions/${id}`);
@@ -74,6 +77,7 @@ export async function deleteSession(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
   getDb().prepare("DELETE FROM research_sessions WHERE id=?").run(id);
+  await removeExport("session", id);
   revalidatePath("/research");
   redirect("/research");
 }
@@ -99,7 +103,10 @@ export async function addClassReview(fd: FormData) {
     text(fd, "score") ? Number(text(fd, "score")) : null,
   );
 
-  if (sessionId) revalidatePath(`/research/sessions/${sessionId}`);
+  if (sessionId) {
+    await exportEntry("session", sessionId);
+    revalidatePath(`/research/sessions/${sessionId}`);
+  }
   revalidatePath("/research");
 }
 
@@ -108,5 +115,8 @@ export async function deleteClassReview(fd: FormData) {
   const sessionId = Number(fd.get("session_id")) || null;
   if (!id) return;
   getDb().prepare("DELETE FROM class_reviews WHERE id=?").run(id);
-  if (sessionId) revalidatePath(`/research/sessions/${sessionId}`);
+  if (sessionId) {
+    await exportEntry("session", sessionId);
+    revalidatePath(`/research/sessions/${sessionId}`);
+  }
 }

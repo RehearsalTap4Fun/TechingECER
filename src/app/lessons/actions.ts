@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { exportEntry, removeExport } from "@/lib/export-md";
 import { redirect } from "next/navigation";
 import { getDb, run, toJsonArray } from "@/lib/db";
 
@@ -39,6 +40,7 @@ export async function createLesson(fd: FormData) {
     String(fd.get("status") ?? "draft"),
   );
 
+  await exportEntry("lesson", id);
   revalidatePath("/lessons");
   revalidatePath("/");
   redirect(`/lessons/${id}`);
@@ -74,6 +76,7 @@ export async function updateLesson(fd: FormData) {
       id,
     );
 
+  await exportEntry("lesson", id);
   revalidatePath(`/lessons/${id}`);
   revalidatePath("/lessons");
   redirect(`/lessons/${id}`);
@@ -83,6 +86,7 @@ export async function deleteLesson(fd: FormData) {
   const id = Number(fd.get("id"));
   if (!id) return;
   getDb().prepare("DELETE FROM lessons WHERE id=?").run(id);
+  await removeExport("lesson", id);
   revalidatePath("/lessons");
   revalidatePath("/");
   redirect("/lessons");
